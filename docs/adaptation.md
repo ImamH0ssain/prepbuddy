@@ -22,6 +22,8 @@ The LLM request receives:
 
 The provider is instructed to focus first on weak topics and avoid repeated questions. After scoring, `topic_stats` and a top-5 KB snapshot are updated.
 
+`clear-knowledge-base` deletes adaptive aggregates and records a reset timestamp. Older sessions remain visible for review, but prior-session counts and repetition fingerprints ignore sessions completed before the reset.
+
 ## Scenario B
 
 Scenario B demonstrates adaptation:

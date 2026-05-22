@@ -45,7 +45,7 @@ def test_repository_lists_documents_with_counts_and_paths(tmp_path: Path) -> Non
     assert documents[0].section_count == 1
     assert documents[0].session_count == 0
     assert documents[0].original_filename == "alpha.pdf"
-    assert documents[0].stored_path.endswith("data/uploads/alpha.pdf")
+    assert (documents[0].stored_path or "").replace("\\", "/").endswith("data/uploads/alpha.pdf")
     assert documents[0].windows_path
     assert documents[0].wsl_path
 
@@ -83,7 +83,7 @@ def test_sessions_are_scoped_to_selected_document(tmp_path: Path) -> None:
     assert generated.questions[0].question_number == 1
 
 
-def test_delete_session_and_document_remove_dependent_rows_and_managed_file(tmp_path: Path) -> None:
+def test_archive_document_hides_it_but_preserves_sessions_and_removes_managed_file(tmp_path: Path) -> None:
     uploads_dir = tmp_path / "data" / "uploads"
     uploads_dir.mkdir(parents=True)
     stored_pdf = uploads_dir / "managed.pdf"
@@ -110,13 +110,11 @@ def test_delete_session_and_document_remove_dependent_rows_and_managed_file(tmp_
     service = PrepService(settings=settings, repository=repo, provider=FakeProvider())
     generated = service.create_session(["1"], questions_per_section=1, provider_name="fake", document_id=document_id)
 
-    repo.delete_session(generated.session_id)
-
-    assert repo.list_sessions(document_id=document_id) == []
-
     repo.delete_document(document_id, uploads_dir=uploads_dir)
 
     assert repo.list_documents() == []
+    assert repo.get_document(document_id).id == document_id
+    assert repo.list_sessions(document_id=document_id)[0].id == generated.session_id
     assert not stored_pdf.exists()
 
 
@@ -151,3 +149,105 @@ def test_ingest_uploaded_pdf_stores_managed_file_and_reuses_duplicate(
     assert len(list((settings.data_dir / "uploads").glob("*.pdf"))) == 1
     assert (settings.data_dir / "mappings" / f"document_{first_id}.json").exists()
     assert (settings.docs_dir / "mappings" / f"document_{first_id}.md").exists()
+
+
+def test_reuploading_archived_document_reactivates_existing_history(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    settings = Settings(
+        db_url=f"sqlite:///{tmp_path / 'prep.sqlite'}",
+        data_dir=tmp_path / "data",
+        docs_dir=tmp_path / "docs",
+        outputs_dir=tmp_path / "outputs",
+        llm_provider="fake",
+    )
+    service = PrepService(settings=settings, provider=FakeProvider())
+    content = b"same archived pdf bytes"
+    content_hash = hashlib.sha256(content).hexdigest()
+
+    def fake_parse_pdf(path: Path):
+        return "Archived Upload", 1, content_hash, _sections("Archived Upload")
+
+    monkeypatch.setattr("prepbuddy.service.parse_pdf", fake_parse_pdf)
+
+    document_id = service.ingest_uploaded_pdf("Old Name.pdf", content)
+    generated = service.create_session(["1"], questions_per_section=1, provider_name="fake", document_id=document_id)
+    service.delete_document(document_id)
+
+    assert service.list_documents() == []
+
+    reactivated_id = service.ingest_uploaded_pdf("New Name.pdf", content)
+
+    assert reactivated_id == document_id
+    assert service.list_documents()[0].id == document_id
+    assert service.repository.list_sessions(document_id=document_id)[0].id == generated.session_id
+    assert service.repository.get_document(document_id).original_filename == "New Name.pdf"
+
+
+def test_clear_knowledge_base_resets_adaptation_without_deleting_documents_or_sessions(tmp_path: Path) -> None:
+    settings = Settings(
+        db_url=f"sqlite:///{tmp_path / 'prep.sqlite'}",
+        data_dir=tmp_path / "data",
+        docs_dir=tmp_path / "docs",
+        outputs_dir=tmp_path / "outputs",
+        llm_provider="fake",
+    )
+    repo = PrepRepository(settings.db_url)
+    document_id = repo.save_document(
+        path=Path("managed.pdf"),
+        title="Managed",
+        page_count=1,
+        content_hash="managed-hash",
+        sections=_sections("Managed"),
+    )
+    service = PrepService(settings=settings, repository=repo, provider=FakeProvider())
+    generated = service.create_session(["1"], questions_per_section=1, provider_name="fake", document_id=document_id)
+    assert generated.questions[0].id is not None
+    service.submit_answers(generated.session_id, {generated.questions[0].id: "B"})
+
+    assert service.repository.prior_session_count([1], document_id=document_id) == 1
+    assert service.repository.weak_topics([1], document_id=document_id)
+    assert service.repository.recent_fingerprints([1], document_id=document_id)
+
+    service.clear_knowledge_base()
+
+    assert service.list_documents()[0].id == document_id
+    assert service.list_sessions(document_id=document_id)[0].id == generated.session_id
+    assert service.repository.prior_session_count([1], document_id=document_id) == 0
+    assert service.repository.weak_topics([1], document_id=document_id) == []
+    assert service.repository.recent_fingerprints([1], document_id=document_id) == []
+
+
+def test_clear_everything_hard_deletes_documents_sessions_and_managed_uploads(tmp_path: Path) -> None:
+    uploads_dir = tmp_path / "data" / "uploads"
+    uploads_dir.mkdir(parents=True)
+    stored_pdf = uploads_dir / "managed.pdf"
+    stored_pdf.write_bytes(b"%PDF managed")
+    settings = Settings(
+        db_url=f"sqlite:///{tmp_path / 'prep.sqlite'}",
+        data_dir=tmp_path / "data",
+        docs_dir=tmp_path / "docs",
+        outputs_dir=tmp_path / "outputs",
+        llm_provider="fake",
+    )
+    repo = PrepRepository(settings.db_url)
+    document_id = repo.save_document(
+        path=stored_pdf,
+        title="Managed",
+        page_count=1,
+        content_hash="managed-hash",
+        sections=_sections("Managed"),
+        original_filename="managed.pdf",
+        stored_path=stored_pdf,
+        source_path=stored_pdf,
+        is_managed_upload=True,
+    )
+    service = PrepService(settings=settings, repository=repo, provider=FakeProvider())
+    service.create_session(["1"], questions_per_section=1, provider_name="fake", document_id=document_id)
+
+    service.clear_everything()
+
+    assert service.list_documents() == []
+    assert service.list_sessions() == []
+    assert not stored_pdf.exists()

@@ -78,3 +78,42 @@ def test_ui_handles_answer_submission_validation_errors_inline() -> None:
 
     assert "except ValueError as exc:" in source
     assert "st.error(str(exc))" in source
+
+
+def test_ui_uses_stateful_start_session_knowledge_navigation() -> None:
+    """Generation needs a stateful tab control so the UI can jump to Session."""
+    source = Path("src/prepbuddy/ui.py").read_text(encoding="utf-8")
+
+    assert "st.tabs" not in source
+    assert "active_tab" in source
+    assert "Start" in source
+    assert "Session" in source
+    assert "Knowledge" in source
+    assert "st.segmented_control" in source or "st.radio" in source
+
+
+def test_ui_navigation_does_not_mix_widget_state_and_default_value() -> None:
+    """Streamlit warns if a keyed widget has both session-state value and default."""
+    source = Path("src/prepbuddy/ui.py").read_text(encoding="utf-8")
+
+    active_tab_source = source.split("def _active_tab", 1)[1].split("def main", 1)[0]
+    assert 'key="active_tab_selector"' in active_tab_source
+    assert "default=current" not in active_tab_source
+
+
+def test_sidebar_removes_question_count_and_uses_pending_danger_confirmation() -> None:
+    """Question count belongs in Start; destructive actions use one red confirmation button."""
+    source = Path("src/prepbuddy/ui.py").read_text(encoding="utf-8")
+    sidebar_source = source.split("def _render_sidebar", 1)[1].split("def _documents_table", 1)[0]
+
+    assert "Questions per section" not in sidebar_source
+    assert "Confirm document deletion" not in source
+    assert "pending_danger_action" in source
+    assert "Confirm selection" in source
+
+
+def test_session_score_is_rendered_through_one_success_path() -> None:
+    """A completed session should not show the same score twice."""
+    source = Path("src/prepbuddy/ui.py").read_text(encoding="utf-8")
+
+    assert source.count('st.success(f"Score:') == 1

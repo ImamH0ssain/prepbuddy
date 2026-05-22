@@ -22,3 +22,6 @@ PrepBuddy uses SQLite through SQLAlchemy 2.x. The schema is intentionally small 
 - `topic_stats`: aggregated attempts/correct/wrong counts by section and topic.
 - `kb_snapshots`: JSON snapshots of recent completed sessions; UI and CLI render these as readable tables.
 - `generation_events`: provider/model/latency/token/warning metadata.
+- `app_state`: application-wide maintenance markers such as the knowledge-base reset timestamp.
+
+Document deletion archives rows by setting deletion metadata; hard deletion is reserved for the explicit clear-everything operation.

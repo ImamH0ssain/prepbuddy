@@ -22,7 +22,6 @@ RUN mkdir -p data outputs docs \
 
 USER prepbuddy
 
-EXPOSE 8000
+EXPOSE 8000 8501
 
 CMD ["prepbuddy", "api", "--host", "0.0.0.0", "--port", "8000"]
-

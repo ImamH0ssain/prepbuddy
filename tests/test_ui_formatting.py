@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from prepbuddy.schemas import KBSnapshot
-from prepbuddy.ui_helpers import format_question_heading, kb_snapshot_tables, section_option_label
+from prepbuddy.ui_helpers import format_answer_feedback, format_question_heading, kb_snapshot_tables, section_option_label
 
 
 def test_ui_labels_hide_internal_ids_and_use_visible_numbers() -> None:
@@ -54,3 +54,17 @@ def test_kb_snapshot_tables_are_human_readable() -> None:
     assert tables["missed_questions"][0]["question"] == "Question 1"
     assert tables["missed_questions"][0]["clarification"] == "Review the tactics section."
 
+
+def test_answer_feedback_names_correct_and_wrong_answers() -> None:
+    assert format_answer_feedback(
+        question_number=1,
+        is_correct=True,
+        correct_answer="A",
+        clarification="Correct.",
+    ) == "Question 1: Correct answer (A). Correct."
+    assert format_answer_feedback(
+        question_number=2,
+        is_correct=False,
+        correct_answer="C",
+        clarification="Review the source section.",
+    ) == "Question 2: Wrong answer. Correct answer: C. Review the source section."

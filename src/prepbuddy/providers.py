@@ -105,7 +105,12 @@ class OllamaProvider:
                 {"role": "system", "content": _system_prompt()},
                 {"role": "user", "content": _user_prompt(request)},
             ],
-            "options": {"temperature": 0.1, "top_p": 0.8, "num_ctx": 8192, "num_predict": 2048},
+            "options": {
+                "temperature": 0.1,
+                "top_p": 0.8,
+                "num_ctx": 8192,
+                "num_predict": _max_output_tokens(request),
+            },
         }
         try:
             response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
@@ -151,6 +156,7 @@ class GeminiProvider:
                     response_mime_type="application/json",
                     response_schema=_question_set_schema(),
                     temperature=0.2,
+                    max_output_tokens=_max_output_tokens(request),
                 ),
             )
             questions = _parse_questions_payload(response.text or "{}")
@@ -216,6 +222,9 @@ def _system_prompt() -> str:
 
 
 def _user_prompt(request: GenerationRequest) -> str:
+    total = len(request.sections) * request.questions_per_section
+    weak_topics = request.adaptation_context.weak_topics[:12]
+    avoid_fingerprints = request.adaptation_context.avoid_fingerprints[:24]
     section_blocks = []
     for section in request.sections:
         section_blocks.append(
@@ -224,16 +233,27 @@ def _user_prompt(request: GenerationRequest) -> str:
                     f"Section {section.canonical_id}: {section.title}",
                     f"Source label: {section.source_label}",
                     f"Chunk IDs: {', '.join(section.chunk_ids)}",
-                    section.text[:3500],
+                    section.text[:2600],
                 ]
             )
         )
     return (
-        f"Generate {request.questions_per_section} MCQs per section.\n"
-        f"Adaptive context:\n{request.adaptation_context.model_dump_json(indent=2)}\n\n"
+        f"Return JSON only. Generate exactly {total} questions total: "
+        f"exactly {request.questions_per_section} questions for each section ID provided.\n"
+        "Each question must be answerable from the supplied excerpts and must include section_id, topic, "
+        "question, four choices A-D, correct_answer, explanation, and source_chunk_ids.\n"
+        f"Prior completed sessions for these sections: {request.adaptation_context.prior_session_count}.\n"
+        f"Weak topics to prioritize: {json.dumps(weak_topics, ensure_ascii=True)}\n"
+        f"Recent question fingerprints to avoid: {json.dumps(avoid_fingerprints, ensure_ascii=True)}\n\n"
         f"Sections:\n\n{chr(10).join(section_blocks)}\n\n"
-        "Avoid repeating questions represented by avoid_fingerprints. Focus first on weak topics when present."
+        "Do not stop early. If context is limited, still produce the exact requested count from the supplied excerpts."
     )
+
+
+def _max_output_tokens(request: GenerationRequest) -> int:
+    """Estimate enough JSON output budget for the requested number of MCQs."""
+    total = max(1, len(request.sections) * request.questions_per_section)
+    return min(16000, max(2048, 500 + total * 650))
 
 
 def _question_set_schema() -> dict[str, object]:

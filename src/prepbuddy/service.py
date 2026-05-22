@@ -69,6 +69,26 @@ class PrepService:
         upload_hash = hashlib.sha256(content).hexdigest()
         existing = self.repository.find_document_by_hash(upload_hash)
         if existing is not None:
+            if existing.deleted_at is not None:
+                upload_dir = self.settings.data_dir / "uploads"
+                upload_dir.mkdir(parents=True, exist_ok=True)
+                stored_path = managed_upload_path(upload_dir, filename, content)
+                stored_path.write_bytes(content)
+                self.repository.reactivate_document(
+                    existing.id,
+                    path=stored_path,
+                    original_filename=filename,
+                    stored_path=stored_path,
+                    source_path=stored_path,
+                    is_managed_upload=True,
+                )
+                self.repository.export_mapping(
+                    data_dir=self.settings.data_dir,
+                    docs_dir=self.settings.docs_dir,
+                    document_id=existing.id,
+                )
+                log_event("document_upload_reactivated", document_id=existing.id, pdf_path=str(stored_path))
+                return existing.id
             log_event("document_upload_reused", document_id=existing.id, pdf_path=existing.stored_path)
             return existing.id
         upload_dir = self.settings.data_dir / "uploads"
@@ -78,6 +98,22 @@ class PrepService:
         title, page_count, content_hash, sections = parse_pdf(stored_path)
         existing = self.repository.find_document_by_hash(content_hash)
         if existing is not None:
+            if existing.deleted_at is not None:
+                self.repository.reactivate_document(
+                    existing.id,
+                    path=stored_path,
+                    original_filename=filename,
+                    stored_path=stored_path,
+                    source_path=stored_path,
+                    is_managed_upload=True,
+                )
+                self.repository.export_mapping(
+                    data_dir=self.settings.data_dir,
+                    docs_dir=self.settings.docs_dir,
+                    document_id=existing.id,
+                )
+                log_event("document_upload_reactivated", document_id=existing.id, pdf_path=str(stored_path))
+                return existing.id
             if stored_path.exists() and str(stored_path) != (existing.stored_path or existing.path):
                 stored_path.unlink()
             log_event("document_upload_reused", document_id=existing.id, pdf_path=str(stored_path))
@@ -134,8 +170,7 @@ class PrepService:
             adaptation_context=adaptation_context,
         )
         provider = self._provider(provider_name)
-        generated = provider.generate_mcqs(request)
-        validated = self._validate_generated_questions(generated, resolved_sections, adaptation_context)
+        validated = self._generate_exact_question_set(provider, request, resolved_sections, adaptation_context)
         session = self.repository.create_generated_session(
             sections=resolved_sections,
             questions=validated.questions,
@@ -267,8 +302,24 @@ class PrepService:
         self.repository.delete_session(session_id)
 
     def delete_document(self, document_id: int, *, delete_file: bool = True) -> None:
-        """Delete a document and its dependent records."""
+        """Archive a document while preserving sessions and adaptive history."""
         self.repository.delete_document(document_id, uploads_dir=self.settings.data_dir / "uploads", delete_file=delete_file)
+
+    def delete_all_documents(self, *, delete_file: bool = True) -> None:
+        """Archive all active documents while preserving their sessions."""
+        self.repository.delete_all_documents(uploads_dir=self.settings.data_dir / "uploads", delete_file=delete_file)
+
+    def delete_all_sessions(self) -> None:
+        """Delete every prep session and derived adaptive records."""
+        self.repository.delete_all_sessions()
+
+    def clear_knowledge_base(self) -> None:
+        """Reset adaptation data while preserving documents and session records."""
+        self.repository.clear_knowledge_base()
+
+    def clear_everything(self) -> None:
+        """Hard-delete all app records and managed upload files."""
+        self.repository.clear_everything(uploads_dir=self.settings.data_dir / "uploads")
 
     def _resolve_sections(self, sections: list[str | int], *, document_id: int | None = None) -> list[Section]:
         document_id = document_id or self.repository.latest_document_id()
@@ -304,15 +355,119 @@ class PrepService:
             return self.provider
         return make_provider(self.settings, selected)
 
+    def _generate_exact_question_set(
+        self,
+        provider: LLMProvider,
+        request: GenerationRequest,
+        sections: list[Section],
+        adaptation_context: AdaptationContext,
+    ) -> GeneratedQuestionSet:
+        """Generate and repair MCQs until the exact requested count is met."""
+        expected_by_section = {section.canonical_id: request.questions_per_section for section in sections}
+        contexts_by_id = {section.canonical_id: context for section, context in zip(sections, request.sections)}
+        total_expected = sum(expected_by_section.values())
+        combined: list[MCQ] = []
+        seen: set[str] = set()
+        provider_result = None
+        warnings: list[str] = []
+        current_request = request
+        max_attempts = 3
+
+        for attempt in range(1, max_attempts + 1):
+            generated = provider.generate_mcqs(current_request)
+            if provider_result is None:
+                provider_result = generated.provider_result.model_copy(deep=True)
+            else:
+                provider_result.latency_ms += generated.provider_result.latency_ms
+            validated = self._validate_generated_questions(
+                generated,
+                sections,
+                adaptation_context,
+                seen_fingerprints=seen,
+            )
+            added_by_section = self._merge_needed_questions(combined, validated.questions, expected_by_section)
+            warnings.extend(validated.provider_result.warnings)
+
+            missing = self._missing_question_counts(combined, expected_by_section)
+            if not missing:
+                break
+            if attempt < max_attempts:
+                warnings.append(
+                    "Provider returned short output; requested repair for "
+                    + ", ".join(f"section {section_id}: {count}" for section_id, count in missing.items())
+                )
+                repair_sections = [contexts_by_id[section_id] for section_id in missing]
+                current_request = GenerationRequest(
+                    sections=repair_sections,
+                    questions_per_section=max(missing.values()),
+                    adaptation_context=AdaptationContext(
+                        prior_session_count=adaptation_context.prior_session_count,
+                        weak_topics=[
+                            item
+                            for item in adaptation_context.weak_topics
+                            if int(item.get("section_id", 0)) in missing
+                        ],
+                        avoid_fingerprints=[*adaptation_context.avoid_fingerprints, *seen],
+                    ),
+                )
+            elif not added_by_section:
+                break
+
+        missing = self._missing_question_counts(combined, expected_by_section)
+        if missing or len(combined) != total_expected:
+            raise ValueError(
+                f"Provider returned {len(combined)} of {total_expected} requested questions; "
+                f"expected exactly {total_expected} questions "
+                f"({request.questions_per_section} per selected section). Try a smaller count or another provider."
+            )
+        if provider_result is None:
+            raise ValueError("Provider did not return a question set")
+        provider_result.warnings = [*provider_result.warnings, *warnings]
+        return GeneratedQuestionSet(questions=combined, provider_result=provider_result)
+
+    def _merge_needed_questions(
+        self,
+        combined: list[MCQ],
+        candidates: list[MCQ],
+        expected_by_section: dict[int, int],
+    ) -> dict[int, int]:
+        """Append only the still-needed questions for each section."""
+        added: dict[int, int] = {}
+        current_counts = {section_id: 0 for section_id in expected_by_section}
+        for question in combined:
+            current_counts[question.section_id] += 1
+        for question in candidates:
+            needed = expected_by_section[question.section_id] - current_counts[question.section_id]
+            if needed <= 0:
+                continue
+            combined.append(question)
+            current_counts[question.section_id] += 1
+            added[question.section_id] = added.get(question.section_id, 0) + 1
+        return added
+
+    def _missing_question_counts(self, questions: list[MCQ], expected_by_section: dict[int, int]) -> dict[int, int]:
+        """Return per-section deficits against the requested MCQ counts."""
+        counts = {section_id: 0 for section_id in expected_by_section}
+        for question in questions:
+            if question.section_id in counts:
+                counts[question.section_id] += 1
+        return {
+            section_id: expected - counts[section_id]
+            for section_id, expected in expected_by_section.items()
+            if counts[section_id] < expected
+        }
+
     def _validate_generated_questions(
         self,
         generated: GeneratedQuestionSet,
         sections: list[Section],
         adaptation_context: AdaptationContext,
+        *,
+        seen_fingerprints: set[str] | None = None,
     ) -> GeneratedQuestionSet:
         selected = {section.canonical_id for section in sections}
         avoid = set(adaptation_context.avoid_fingerprints)
-        seen: set[str] = set()
+        seen = seen_fingerprints if seen_fingerprints is not None else set()
         warnings = list(generated.provider_result.warnings)
         for index, question in enumerate(generated.questions, start=1):
             if question.section_id not in selected:

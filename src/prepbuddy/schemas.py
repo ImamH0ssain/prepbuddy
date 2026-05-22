@@ -45,6 +45,7 @@ class Document(BaseModel):
     stored_path: str | None = None
     source_path: str | None = None
     is_managed_upload: bool = False
+    deleted_at: datetime | None = None
     section_count: int = 0
     session_count: int = 0
     windows_path: str = ""

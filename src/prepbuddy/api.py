@@ -74,12 +74,18 @@ def create_app(service: PrepService | None = None) -> FastAPI:
 
     @app.delete("/documents/{document_id}")
     def delete_document(document_id: int, delete_file: bool = Query(default=True)) -> dict[str, str]:
-        """Delete an ingested document and its dependent prep state."""
+        """Archive an ingested document while preserving prep history."""
         try:
             prep_service.delete_document(document_id, delete_file=delete_file)
-            return {"status": "deleted"}
+            return {"status": "archived"}
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.delete("/documents")
+    def delete_all_documents(delete_file: bool = Query(default=True)) -> dict[str, str]:
+        """Archive all active documents while preserving prep history."""
+        prep_service.delete_all_documents(delete_file=delete_file)
+        return {"status": "archived"}
 
     @app.get("/sections")
     def sections() -> list[dict[str, object]]:
@@ -142,6 +148,12 @@ def create_app(service: PrepService | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.delete("/sessions")
+    def delete_all_sessions() -> dict[str, str]:
+        """Delete every prep session and derived adaptive records."""
+        prep_service.delete_all_sessions()
+        return {"status": "deleted"}
+
     @app.post("/sessions/{session_id}/answers")
     def submit_answers(session_id: str, request: AnswerSubmitRequest) -> dict[str, object]:
         """Submit answers and return a scored session."""
@@ -176,6 +188,18 @@ def create_app(service: PrepService | None = None) -> FastAPI:
     def snapshot(limit: int = Query(default=5, ge=1, le=25)) -> dict[str, object]:
         """Return a human-readable KB snapshot."""
         return prep_service.repository.snapshot(limit=limit).model_dump(mode="json")
+
+    @app.delete("/kb")
+    def clear_knowledge_base() -> dict[str, str]:
+        """Reset adaptive knowledge while preserving documents and sessions."""
+        prep_service.clear_knowledge_base()
+        return {"status": "cleared"}
+
+    @app.delete("/maintenance/everything")
+    def clear_everything() -> dict[str, str]:
+        """Hard-delete every PrepBuddy record and managed upload."""
+        prep_service.clear_everything()
+        return {"status": "cleared"}
 
     @app.get("/documents/{document_id}/kb/snapshot")
     def document_snapshot(document_id: int, limit: int = Query(default=5, ge=1, le=25)) -> dict[str, object]:

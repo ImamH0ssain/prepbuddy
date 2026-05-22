@@ -33,6 +33,7 @@ class DocumentModel(Base):
     source_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_managed_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     sections: Mapped[list["SectionModel"]] = relationship(
         back_populates="document",
@@ -246,6 +247,16 @@ class GenerationEventModel(Base):
     token_usage_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     warnings_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class AppStateModel(Base):
+    """Small key-value store for application-wide maintenance state."""
+
+    __tablename__ = "app_state"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
 def make_engine(db_url: str) -> Engine:

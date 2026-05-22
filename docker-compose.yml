@@ -1,20 +1,37 @@
+x-prepbuddy-environment: &prepbuddy-environment
+  PREPBUDDY_DB_URL: sqlite:///data/prepbuddy.sqlite
+  PREPBUDDY_LLM_PROVIDER: ${PREPBUDDY_LLM_PROVIDER:-auto}
+  PREPBUDDY_OLLAMA_BASE_URL: ${PREPBUDDY_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+
+x-prepbuddy-volumes: &prepbuddy-volumes
+  - ./data:/app/data
+  - ./config:/app/config
+  - ./outputs:/app/outputs
+  - ./docs:/app/docs
+  - ./SLATEFALL_DOSSIER.pdf:/app/SLATEFALL_DOSSIER.pdf:ro
+  - ./assessment_brief.pdf:/app/assessment_brief.pdf:ro
+
 services:
   app:
     build: .
-    env_file:
-      - .env
-    environment:
-      PREPBUDDY_DB_URL: sqlite:///data/prepbuddy.sqlite
-      PREPBUDDY_OLLAMA_BASE_URL: ${PREPBUDDY_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    environment: *prepbuddy-environment
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
-    volumes:
-      - ./data:/app/data
-      - ./config:/app/config
-      - ./outputs:/app/outputs
-      - ./docs:/app/docs
-      - ./SLATEFALL_DOSSIER.pdf:/app/SLATEFALL_DOSSIER.pdf:ro
-      - ./assessment_brief.pdf:/app/assessment_brief.pdf:ro
+    volumes: *prepbuddy-volumes
+
+  ui:
+    build: .
+    command: prepbuddy ui --host 0.0.0.0 --port 8501 --no-open-browser
+    profiles: ["ui"]
+    environment: *prepbuddy-environment
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8501:8501"
+    volumes: *prepbuddy-volumes
 
   ollama:
     image: ollama/ollama:latest
@@ -26,4 +43,3 @@ services:
 
 volumes:
   ollama:
-

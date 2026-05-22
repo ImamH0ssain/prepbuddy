@@ -64,7 +64,7 @@ def test_cli_documents_sessions_and_kb_snapshot(tmp_path: Path) -> None:
     assert "Recent Sessions" in snapshot.output
 
 
-def test_cli_delete_session_and_document(tmp_path: Path) -> None:
+def test_cli_delete_session_and_archive_document(tmp_path: Path) -> None:
     db_url = f"sqlite:///{tmp_path / 'prep.sqlite'}"
     repo, document_id, session_id = _seed_repo(db_url)
 
@@ -72,7 +72,9 @@ def test_cli_delete_session_and_document(tmp_path: Path) -> None:
     assert deleted_session.exit_code == 0
     assert repo.list_sessions(document_id=document_id) == []
 
+    _, document_id, session_id = _seed_repo(db_url)
+
     deleted_document = runner.invoke(app, ["delete-document", str(document_id), "--yes", "--keep-file", "--db", db_url])
     assert deleted_document.exit_code == 0
     assert repo.list_documents() == []
-
+    assert repo.list_sessions(document_id=document_id)[0].id == session_id

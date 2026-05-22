@@ -215,11 +215,60 @@ def delete_document(
     keep_file: Annotated[bool, typer.Option("--keep-file", help="Keep managed upload PDF on disk.")] = False,
     db: Annotated[str | None, typer.Option("--db", help="SQLAlchemy DB URL.")] = None,
 ) -> None:
-    """Delete one PDF document and its prep state."""
-    if not yes and not typer.confirm(f"Delete document {document_id} and its sessions?"):
+    """Archive one PDF document while preserving its sessions and history."""
+    if not yes and not typer.confirm(f"Archive document {document_id}? Sessions and history will be preserved."):
         raise typer.Exit(1)
     _service(db).delete_document(document_id, delete_file=not keep_file)
-    console.print(f"Deleted document {document_id}")
+    console.print(f"Archived document {document_id}")
+
+
+@app.command("delete-all-documents")
+def delete_all_documents(
+    yes: Annotated[bool, typer.Option("--yes", help="Confirm archive operation.")] = False,
+    keep_files: Annotated[bool, typer.Option("--keep-files", help="Keep managed upload PDFs on disk.")] = False,
+    db: Annotated[str | None, typer.Option("--db", help="SQLAlchemy DB URL.")] = None,
+) -> None:
+    """Archive every active PDF document while preserving sessions."""
+    if not yes and not typer.confirm("Archive all active documents? Sessions and history will be preserved."):
+        raise typer.Exit(1)
+    _service(db).delete_all_documents(delete_file=not keep_files)
+    console.print("Archived all active documents")
+
+
+@app.command("delete-all-sessions")
+def delete_all_sessions(
+    yes: Annotated[bool, typer.Option("--yes", help="Confirm deletion.")] = False,
+    db: Annotated[str | None, typer.Option("--db", help="SQLAlchemy DB URL.")] = None,
+) -> None:
+    """Delete every prep session and derived adaptive records."""
+    if not yes and not typer.confirm("Delete all prep sessions?"):
+        raise typer.Exit(1)
+    _service(db).delete_all_sessions()
+    console.print("Deleted all sessions")
+
+
+@app.command("clear-knowledge-base")
+def clear_knowledge_base(
+    yes: Annotated[bool, typer.Option("--yes", help="Confirm reset.")] = False,
+    db: Annotated[str | None, typer.Option("--db", help="SQLAlchemy DB URL.")] = None,
+) -> None:
+    """Reset adaptive learning data while preserving documents and sessions."""
+    if not yes and not typer.confirm("Clear adaptive knowledge while preserving documents and sessions?"):
+        raise typer.Exit(1)
+    _service(db).clear_knowledge_base()
+    console.print("Cleared adaptive knowledge base")
+
+
+@app.command("clear-everything")
+def clear_everything(
+    yes: Annotated[bool, typer.Option("--yes", help="Confirm destructive wipe.")] = False,
+    db: Annotated[str | None, typer.Option("--db", help="SQLAlchemy DB URL.")] = None,
+) -> None:
+    """Hard-delete all PrepBuddy records and managed upload files."""
+    if not yes and not typer.confirm("Hard-delete all PrepBuddy data and managed uploads?"):
+        raise typer.Exit(1)
+    _service(db).clear_everything()
+    console.print("Cleared all PrepBuddy data")
 
 
 @app.command("kb-snapshot")

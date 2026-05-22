@@ -48,7 +48,13 @@ curl http://127.0.0.1:8000/documents/1/sessions
 curl http://127.0.0.1:8000/documents/1/kb/snapshot?limit=5
 curl -X DELETE http://127.0.0.1:8000/sessions/<session_id>
 curl -X DELETE http://127.0.0.1:8000/documents/1
+curl -X DELETE http://127.0.0.1:8000/documents
+curl -X DELETE http://127.0.0.1:8000/sessions
+curl -X DELETE http://127.0.0.1:8000/kb
+curl -X DELETE http://127.0.0.1:8000/maintenance/everything
 ```
+
+`DELETE /documents/{document_id}` and `DELETE /documents` archive documents by default: sessions and history remain available by document ID, and uploading the same PDF content reactivates the previous document. `DELETE /maintenance/everything` is the destructive wipe.
 
 ## Error Handling
 

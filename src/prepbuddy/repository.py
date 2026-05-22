@@ -13,6 +13,7 @@ from sqlalchemy import delete, desc, func, select
 from sqlalchemy.orm import Session
 
 from .db import (
+    AppStateModel,
     AnswerChoiceModel,
     AnswerModel,
     Base,
@@ -141,14 +142,19 @@ class PrepRepository:
         """Return an existing document with the same content hash, if present."""
         with self.session_scope() as session:
             model = session.execute(
-                select(DocumentModel).where(DocumentModel.content_hash == content_hash).order_by(DocumentModel.id)
+                select(DocumentModel)
+                .where(DocumentModel.content_hash == content_hash)
+                .order_by(DocumentModel.deleted_at.is_not(None), DocumentModel.id)
             ).scalars().first()
             return self._document_schema(session, model) if model else None
 
-    def list_documents(self) -> list[Document]:
-        """List all ingested documents with section and session counts."""
+    def list_documents(self, *, include_archived: bool = False) -> list[Document]:
+        """List ingested documents with section and session counts."""
         with self.session_scope() as session:
-            models = session.execute(select(DocumentModel).order_by(DocumentModel.id)).scalars()
+            query = select(DocumentModel).order_by(DocumentModel.id)
+            if not include_archived:
+                query = query.where(DocumentModel.deleted_at.is_(None))
+            models = session.execute(query).scalars()
             return [self._document_schema(session, model) for model in models]
 
     def get_document(self, document_id: int | None = None) -> Document:
@@ -161,11 +167,13 @@ class PrepRepository:
             return self._document_schema(session, model)
 
     def latest_document_id(self) -> int:
-        """Return the most recently ingested document ID."""
+        """Return the most recently active ingested document ID."""
         with self.session_scope() as session:
-            document_id = session.execute(select(func.max(DocumentModel.id))).scalar_one_or_none()
+            document_id = session.execute(
+                select(func.max(DocumentModel.id)).where(DocumentModel.deleted_at.is_(None))
+            ).scalar_one_or_none()
             if document_id is None:
-                raise ValueError("No document has been ingested yet")
+                raise ValueError("No active document has been ingested yet")
             return int(document_id)
 
     def list_sections(self, document_id: int | None = None) -> list[Section]:
@@ -441,7 +449,7 @@ class PrepRepository:
             self._delete_session_by_id(db, session_id)
 
     def delete_document(self, document_id: int, *, uploads_dir: Path | None = None, delete_file: bool = True) -> None:
-        """Delete a document, dependent prep state, and its managed upload file."""
+        """Archive a document while preserving its sessions and learning history."""
         file_to_delete: Path | None = None
         with self.session_scope() as db:
             document = db.get(DocumentModel, document_id)
@@ -451,17 +459,83 @@ class PrepRepository:
                 candidate = Path(document.stored_path or document.path)
                 if self._is_within(candidate, uploads_dir):
                     file_to_delete = candidate
-            self._delete_sessions_for_document(db, document_id)
-            db.execute(delete(TopicStatModel).where(TopicStatModel.document_id == document_id))
-            db.delete(document)
+            document.deleted_at = utcnow()
         if file_to_delete and file_to_delete.exists():
             file_to_delete.unlink()
+
+    def reactivate_document(
+        self,
+        document_id: int,
+        *,
+        path: Path,
+        original_filename: str,
+        stored_path: Path,
+        source_path: Path,
+        is_managed_upload: bool,
+    ) -> Document:
+        """Restore an archived duplicate document and refresh its managed file metadata."""
+        with self.session_scope() as db:
+            document = db.get(DocumentModel, document_id)
+            if document is None:
+                raise ValueError(f"Unknown document: {document_id}")
+            document.path = str(path)
+            document.original_filename = original_filename
+            document.stored_path = str(stored_path)
+            document.source_path = str(source_path)
+            document.is_managed_upload = is_managed_upload
+            document.deleted_at = None
+            db.flush()
+            return self._document_schema(db, document)
+
+    def delete_all_documents(self, *, uploads_dir: Path | None = None, delete_file: bool = True) -> None:
+        """Archive all active documents while preserving sessions and history."""
+        for document in self.list_documents():
+            self.delete_document(document.id, uploads_dir=uploads_dir, delete_file=delete_file)
+
+    def delete_all_sessions(self) -> None:
+        """Delete every prep session and clear derived adaptive records."""
+        with self.session_scope() as db:
+            session_ids = db.execute(select(PrepSessionModel.id)).scalars()
+            for session_id in list(session_ids):
+                self._delete_session_by_id(db, session_id)
+            db.execute(delete(TopicStatModel))
+            self._set_app_state(db, "kb_reset_at", utcnow().isoformat())
+
+    def clear_knowledge_base(self) -> None:
+        """Reset adaptive learning data while preserving documents and sessions."""
+        with self.session_scope() as db:
+            db.execute(delete(TopicStatModel))
+            db.execute(delete(KBSnapshotModel))
+            db.execute(delete(GenerationEventModel))
+            self._set_app_state(db, "kb_reset_at", utcnow().isoformat())
+
+    def clear_everything(self, *, uploads_dir: Path | None = None, delete_files: bool = True) -> None:
+        """Hard-delete every PrepBuddy record and managed upload file."""
+        files_to_delete: list[Path] = []
+        with self.session_scope() as db:
+            if delete_files and uploads_dir is not None:
+                documents = db.execute(select(DocumentModel)).scalars()
+                for document in documents:
+                    if document.is_managed_upload:
+                        candidate = Path(document.stored_path or document.path)
+                        if self._is_within(candidate, uploads_dir):
+                            files_to_delete.append(candidate)
+            db.execute(delete(KBSnapshotModel))
+            db.execute(delete(GenerationEventModel))
+            db.execute(delete(TopicStatModel))
+            db.execute(delete(PrepSessionModel))
+            db.execute(delete(DocumentModel))
+            db.execute(delete(AppStateModel))
+        for path in files_to_delete:
+            if path.exists():
+                path.unlink()
 
     def weak_topics(self, section_ids: list[int], *, document_id: int | None = None) -> list[dict[str, object]]:
         """Return historically weak topics for selected canonical section IDs."""
         if not section_ids:
             return []
         with self.session_scope() as db:
+            reset_at = self._kb_reset_at(db)
             query = (
                 select(TopicStatModel)
                 .where(TopicStatModel.section_canonical_id.in_(section_ids), TopicStatModel.wrong > 0)
@@ -469,6 +543,8 @@ class PrepRepository:
             )
             if document_id is not None:
                 query = query.where(TopicStatModel.document_id == document_id)
+            if reset_at is not None:
+                query = query.where(TopicStatModel.last_seen_at > reset_at)
             stats = db.execute(query).scalars()
             return [
                 {
@@ -486,6 +562,7 @@ class PrepRepository:
         if not section_ids:
             return 0
         with self.session_scope() as db:
+            reset_at = self._kb_reset_at(db)
             query = (
                 select(func.count(func.distinct(PrepSessionModel.id)))
                 .join(SessionSectionModel)
@@ -496,6 +573,8 @@ class PrepRepository:
             )
             if document_id is not None:
                 query = query.where(PrepSessionModel.document_id == document_id)
+            if reset_at is not None:
+                query = query.where(PrepSessionModel.completed_at > reset_at)
             return int(db.execute(query).scalar_one())
 
     def recent_fingerprints(
@@ -509,6 +588,7 @@ class PrepRepository:
         if not section_ids:
             return []
         with self.session_scope() as db:
+            reset_at = self._kb_reset_at(db)
             query = (
                 select(QuestionModel.fingerprint)
                 .join(PrepSessionModel)
@@ -521,6 +601,8 @@ class PrepRepository:
             )
             if document_id is not None:
                 query = query.where(PrepSessionModel.document_id == document_id)
+            if reset_at is not None:
+                query = query.where(PrepSessionModel.completed_at > reset_at)
             rows = db.execute(query).scalars()
             return [fingerprint for fingerprint in rows if fingerprint]
 
@@ -680,6 +762,7 @@ class PrepRepository:
             stored_path=model.stored_path,
             source_path=model.source_path,
             is_managed_upload=model.is_managed_upload,
+            deleted_at=model.deleted_at,
             section_count=section_count,
             session_count=session_count,
             windows_path=windows_display_path(display_path),
@@ -701,6 +784,23 @@ class PrepRepository:
         db.execute(delete(KBSnapshotModel).where(KBSnapshotModel.session_id == session_id))
         db.delete(session)
 
+    def _set_app_state(self, db: Session, key: str, value: str) -> None:
+        state = db.get(AppStateModel, key)
+        if state is None:
+            db.add(AppStateModel(key=key, value=value, updated_at=utcnow()))
+            return
+        state.value = value
+        state.updated_at = utcnow()
+
+    def _kb_reset_at(self, db: Session) -> datetime | None:
+        state = db.get(AppStateModel, "kb_reset_at")
+        if state is None:
+            return None
+        try:
+            return datetime.fromisoformat(state.value)
+        except ValueError:
+            return None
+
     def _is_within(self, path: Path, parent: Path) -> bool:
         try:
             path.resolve(strict=False).relative_to(parent.resolve(strict=False))
@@ -709,8 +809,8 @@ class PrepRepository:
             return False
 
     def _build_alias_sets(self, sections: list[ParsedSection]) -> dict[int, set[str]]:
-        seen: dict[str, int] = {}
         alias_sets: dict[int, set[str]] = {}
+        owners: dict[str, set[int]] = {}
         for section in sections:
             aliases = {
                 normalize_alias(section.canonical_id),
@@ -722,11 +822,14 @@ class PrepRepository:
                 aliases.add(normalize_alias(section.source_label.replace("Section ", "")))
             aliases = {alias for alias in aliases if alias}
             for alias in aliases:
-                previous = seen.get(alias)
-                if previous is not None and previous != section.canonical_id:
-                    raise ValueError(f"Duplicate section alias '{alias}' for sections {previous} and {section.canonical_id}")
-                seen[alias] = section.canonical_id
+                owners.setdefault(alias, set()).add(section.canonical_id)
             alias_sets[section.canonical_id] = aliases
+        ambiguous = {alias for alias, canonical_ids in owners.items() if len(canonical_ids) > 1}
+        if ambiguous:
+            alias_sets = {
+                canonical_id: aliases - ambiguous
+                for canonical_id, aliases in alias_sets.items()
+            }
         return alias_sets
 
     def _ensure_sqlite_parent(self, db_url: str) -> None:
@@ -760,6 +863,8 @@ class PrepRepository:
                     connection.exec_driver_sql(
                         "ALTER TABLE documents ADD COLUMN is_managed_upload BOOLEAN NOT NULL DEFAULT 0"
                     )
+                if "deleted_at" not in document_columns:
+                    connection.exec_driver_sql("ALTER TABLE documents ADD COLUMN deleted_at DATETIME")
                 connection.exec_driver_sql(
                     "UPDATE documents SET original_filename = COALESCE(original_filename, path), "
                     "stored_path = COALESCE(stored_path, path), source_path = COALESCE(source_path, path)"

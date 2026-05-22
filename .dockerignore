@@ -1,12 +1,14 @@
 .git
 projectenv
+venv
 .venv
 .pytest_cache
 .ruff_cache
 __pycache__
 *.pyc
+data/uploads
+data/mappings
 data/*.sqlite
 data/*.sqlite-*
 outputs
 logs
-

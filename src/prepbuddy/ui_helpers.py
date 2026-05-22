@@ -22,6 +22,19 @@ def format_question_heading(question_number: int, question: str) -> str:
     return f"Question {question_number}. {question}"
 
 
+def format_answer_feedback(
+    *,
+    question_number: int,
+    is_correct: bool,
+    correct_answer: str,
+    clarification: str,
+) -> str:
+    """Return feedback text that explicitly labels correct and wrong answers."""
+    if is_correct:
+        return f"Question {question_number}: Correct answer ({correct_answer}). {clarification}"
+    return f"Question {question_number}: Wrong answer. Correct answer: {correct_answer}. {clarification}"
+
+
 def kb_snapshot_tables(snapshot: KBSnapshot) -> dict[str, list[dict[str, object]]]:
     """Convert a KB snapshot into readable table rows for Streamlit."""
     sessions: list[dict[str, object]] = []
@@ -56,4 +69,3 @@ def kb_snapshot_tables(snapshot: KBSnapshot) -> dict[str, list[dict[str, object]
                 }
             )
     return {"sessions": sessions, "missed_questions": missed_questions}
-

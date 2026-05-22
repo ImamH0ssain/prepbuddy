@@ -91,6 +91,15 @@ def test_api_document_upload_sessions_and_delete_flow(tmp_path: Path, monkeypatc
     assert deleted_session.status_code == 200
     assert client.get(f"/documents/{document_id}/sessions").json() == []
 
+    created = client.post(
+        "/sessions",
+        json={"document_id": document_id, "sections": ["1"], "questions_per_section": 1, "llm": "fake"},
+    )
+    assert created.status_code == 200
+
     deleted_document = client.delete(f"/documents/{document_id}")
     assert deleted_document.status_code == 200
     assert client.get("/documents").json() == []
+    archived_sessions = client.get(f"/documents/{document_id}/sessions")
+    assert archived_sessions.status_code == 200
+    assert archived_sessions.json()[0]["id"] == created.json()["session_id"]

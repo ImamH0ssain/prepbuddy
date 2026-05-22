@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
@@ -11,7 +12,21 @@ from prepbuddy.providers import ProviderError
 from prepbuddy.schemas import GeneratedSession, SessionResult
 from prepbuddy.service import PrepService
 from prepbuddy.settings import Settings
-from prepbuddy.ui_helpers import format_question_heading, kb_snapshot_tables, section_option_label
+from prepbuddy.ui_helpers import (
+    format_answer_feedback,
+    format_question_heading,
+    kb_snapshot_tables,
+    section_option_label,
+)
+
+
+NAV_ITEMS = ["Start", "Session", "Knowledge"]
+GLOBAL_DANGER_ACTIONS = {
+    "Delete all documents": "Archive every active document. Sessions and history are preserved.",
+    "Delete all sessions": "Delete all sessions and derived adaptive records. Documents remain available.",
+    "Clear knowledge base": "Reset adaptive memory while preserving documents and visible sessions.",
+    "Clear everything": "Hard-delete all PrepBuddy documents, sessions, history, and managed uploads.",
+}
 
 
 @st.cache_resource
@@ -35,10 +50,95 @@ def _document_label(document) -> str:  # type: ignore[no-untyped-def]
 
 
 def _load_session(service: PrepService, session_id: str) -> None:
+    """Load a persisted session into Streamlit state."""
     session = service.repository.get_generated_session(session_id)
     st.session_state["active_session_id"] = session_id
+    st.session_state["active_document_id"] = session.document_id
     st.session_state["generated_session"] = session.model_dump(mode="json")
+    st.session_state["force_active_tab"] = "Session"
     st.session_state.pop("last_result", None)
+
+
+def _inject_danger_styles() -> None:
+    """Style primary buttons as red destructive confirmations."""
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] button[kind="primary"] {
+            background-color: #b42318;
+            border-color: #b42318;
+            color: #ffffff;
+        }
+        div[data-testid="stButton"] button[kind="primary"]:hover {
+            background-color: #912018;
+            border-color: #912018;
+            color: #ffffff;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _set_pending_action(action: dict[str, Any]) -> None:
+    """Store a destructive action that requires the shared confirmation button."""
+    st.session_state["pending_danger_action"] = action
+
+
+def _execute_danger_action(service: PrepService, action: dict[str, Any]) -> None:
+    """Run a confirmed destructive action and repair UI state."""
+    kind = action["type"]
+    if kind == "delete_document":
+        document_id = int(action["document_id"])
+        service.delete_document(document_id)
+        if st.session_state.get("active_document_id") == document_id:
+            st.session_state.pop("active_document_id", None)
+            st.session_state.pop("active_session_id", None)
+            st.session_state.pop("generated_session", None)
+            st.session_state.pop("last_result", None)
+    elif kind == "delete_session":
+        session_id = str(action["session_id"])
+        service.delete_session(session_id)
+        if st.session_state.get("active_session_id") == session_id:
+            st.session_state.pop("active_session_id", None)
+            st.session_state.pop("generated_session", None)
+            st.session_state.pop("last_result", None)
+    elif kind == "delete_all_documents":
+        service.delete_all_documents()
+        for key in ("active_document_id", "active_session_id", "generated_session", "last_result"):
+            st.session_state.pop(key, None)
+    elif kind == "delete_all_sessions":
+        service.delete_all_sessions()
+        for key in ("active_session_id", "generated_session", "last_result"):
+            st.session_state.pop(key, None)
+    elif kind == "clear_knowledge_base":
+        service.clear_knowledge_base()
+        st.session_state.pop("last_result", None)
+    elif kind == "clear_everything":
+        service.clear_everything()
+        for key in ("active_document_id", "active_session_id", "generated_session", "last_result"):
+            st.session_state.pop(key, None)
+    else:
+        raise ValueError(f"Unknown danger action: {kind}")
+
+
+def _render_pending_confirmation(service: PrepService) -> None:
+    """Render the shared pending-action confirmation controls."""
+    pending = st.session_state.get("pending_danger_action")
+    if not pending:
+        return
+    st.sidebar.warning(str(pending["message"]))
+    cols = st.sidebar.columns([0.65, 0.35])
+    if cols[0].button("Confirm selection", key="confirm_pending_danger", type="primary"):
+        try:
+            _execute_danger_action(service, pending)
+            st.session_state.pop("pending_danger_action", None)
+            st.rerun()
+        except ValueError as exc:
+            st.sidebar.error(str(exc))
+    if cols[1].button("Cancel", key="cancel_pending_danger"):
+        st.session_state.pop("pending_danger_action", None)
+        st.rerun()
 
 
 def _render_sidebar(service: PrepService) -> int | None:
@@ -46,13 +146,14 @@ def _render_sidebar(service: PrepService) -> int | None:
     st.sidebar.title("PrepBuddy")
     documents = service.list_documents()
 
-    with st.sidebar.expander("Upload PDF", expanded=not documents):
-        upload = st.file_uploader("PDF document", type=["pdf"])
+    with st.sidebar.expander("Documents", expanded=True):
+        upload = st.file_uploader("Upload PDF document", type=["pdf"])
         if st.button("Upload and ingest", disabled=upload is None):
             if upload is not None:
                 try:
                     document_id = service.ingest_uploaded_pdf(upload.name, upload.getvalue())
                     st.session_state["active_document_id"] = document_id
+                    st.session_state["force_active_tab"] = "Start"
                     st.session_state.pop("generated_session", None)
                     st.session_state.pop("active_session_id", None)
                     st.success("PDF ingested.")
@@ -60,21 +161,38 @@ def _render_sidebar(service: PrepService) -> int | None:
                 except Exception as exc:
                     st.error(str(exc))
 
+        documents = service.list_documents()
+        if not documents:
+            st.caption("No uploaded documents yet.")
+        for document in documents:
+            cols = st.columns([0.72, 0.28])
+            if cols[0].button(_document_label(document), key=f"select_document_{document.id}"):
+                st.session_state["active_document_id"] = document.id
+                st.session_state["force_active_tab"] = "Start"
+                st.session_state.pop("active_session_id", None)
+                st.session_state.pop("generated_session", None)
+                st.session_state.pop("last_result", None)
+                st.rerun()
+            if cols[1].button("Delete", key=f"archive_document_{document.id}"):
+                _set_pending_action(
+                    {
+                        "type": "delete_document",
+                        "document_id": document.id,
+                        "message": f"Archive document {document.id}? Sessions and history will be preserved.",
+                    }
+                )
+
     if not documents:
+        _render_pending_confirmation(service)
         return None
 
-    labels = {_document_label(document): document.id for document in documents}
-    active_document_id = st.session_state.get("active_document_id", documents[-1].id)
-    current_label = next(
-        (label for label, document_id in labels.items() if document_id == active_document_id),
-        next(reversed(labels)),
-    )
-    selected_label = st.sidebar.selectbox("Document", list(labels), index=list(labels).index(current_label))
-    selected_document_id = labels[selected_label]
-    st.session_state["active_document_id"] = selected_document_id
+    active_document_id = st.session_state.get("active_document_id")
+    if active_document_id not in {document.id for document in documents}:
+        active_document_id = documents[-1].id
+        st.session_state["active_document_id"] = active_document_id
 
     with st.sidebar.expander("Sessions", expanded=True):
-        sessions = service.list_sessions(document_id=selected_document_id)
+        sessions = service.list_sessions(document_id=int(active_document_id))
         if not sessions:
             st.caption("No sessions for this document.")
         for session in sessions:
@@ -85,27 +203,19 @@ def _render_sidebar(service: PrepService) -> int | None:
                 _load_session(service, session.id)
                 st.rerun()
             if cols[1].button("Delete", key=f"delete_session_{session.id}"):
-                try:
-                    service.delete_session(session.id)
-                    if st.session_state.get("active_session_id") == session.id:
-                        st.session_state.pop("active_session_id", None)
-                        st.session_state.pop("generated_session", None)
-                        st.session_state.pop("last_result", None)
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
+                _set_pending_action(
+                    {
+                        "type": "delete_session",
+                        "session_id": session.id,
+                        "message": f"Delete session {session.id[:8]}?",
+                    }
+                )
 
     with st.sidebar.expander("Settings", expanded=False):
         st.session_state["provider"] = st.selectbox(
             "Provider",
             ["auto", "gemini", "ollama", "fake"],
             index=["auto", "gemini", "ollama", "fake"].index(st.session_state.get("provider", "auto")),
-        )
-        st.session_state["questions_per_section"] = st.number_input(
-            "Questions per section",
-            min_value=1,
-            max_value=20,
-            value=int(st.session_state.get("questions_per_section", 5)),
         )
         session_key = st.text_input("Gemini API key", type="password", value="")
         if session_key:
@@ -134,22 +244,27 @@ def _render_sidebar(service: PrepService) -> int | None:
                 st.success("Gemini key set for this UI session.")
 
     with st.sidebar.expander("Danger Zone", expanded=False):
-        confirm = st.checkbox("Confirm document deletion")
-        if st.button("Delete selected document", disabled=not confirm):
+        action_label = st.selectbox("Action", list(GLOBAL_DANGER_ACTIONS))
+        st.caption(GLOBAL_DANGER_ACTIONS[action_label])
+        if st.button("Confirm selection", key="confirm_global_danger", type="primary"):
+            action_type = {
+                "Delete all documents": "delete_all_documents",
+                "Delete all sessions": "delete_all_sessions",
+                "Clear knowledge base": "clear_knowledge_base",
+                "Clear everything": "clear_everything",
+            }[action_label]
             try:
-                service.delete_document(selected_document_id)
-                st.session_state.pop("active_document_id", None)
-                st.session_state.pop("active_session_id", None)
-                st.session_state.pop("generated_session", None)
-                st.session_state.pop("last_result", None)
+                _execute_danger_action(service, {"type": action_type})
                 st.rerun()
             except ValueError as exc:
                 st.error(str(exc))
 
-    return selected_document_id
+    _render_pending_confirmation(service)
+    return int(active_document_id)
 
 
 def _documents_table(service: PrepService) -> list[dict[str, object]]:
+    """Return active document rows for the Start table."""
     return [
         {
             "id": document.id,
@@ -167,10 +282,37 @@ def _documents_table(service: PrepService) -> list[dict[str, object]]:
     ]
 
 
-def _render_prep_tab(service: PrepService, document_id: int) -> None:
+def _select_active_document(service: PrepService, document_id: int) -> int:
+    """Render the Start document selector and return the selected ID."""
+    documents = service.list_documents()
+    labels = {_document_label(document): document.id for document in documents}
+    current_label = next(
+        (label for label, candidate_id in labels.items() if candidate_id == document_id),
+        next(iter(labels)),
+    )
+    selected_label = st.selectbox("Active document", list(labels), index=list(labels).index(current_label))
+    selected_document_id = labels[selected_label]
+    if selected_document_id != document_id:
+        st.session_state["active_document_id"] = selected_document_id
+        st.session_state.pop("active_session_id", None)
+        st.session_state.pop("generated_session", None)
+        st.session_state.pop("last_result", None)
+        st.rerun()
+    return selected_document_id
+
+
+def _render_start_tab(service: PrepService, document_id: int) -> None:
+    """Render the document overview and session generation workflow."""
+    st.subheader("Documents")
+    st.dataframe(_documents_table(service), width="stretch")
+
+    document_id = _select_active_document(service, document_id)
     sections = service.list_sections(document_id=document_id)
     mapping = service.mapping_payload(document_id=document_id)
+
+    st.subheader("Section Mapping")
     st.dataframe(mapping, width="stretch")
+
     options = {
         section_option_label(
             canonical_id=section.canonical_id,
@@ -182,43 +324,66 @@ def _render_prep_tab(service: PrepService, document_id: int) -> None:
         for section in sections
     }
     selected_labels = st.multiselect("Sections", list(options), default=list(options)[:1])
+    questions_per_section = st.number_input(
+        "Questions per section",
+        min_value=1,
+        max_value=20,
+        value=int(st.session_state.get("questions_per_section", 5)),
+    )
+    st.session_state["questions_per_section"] = int(questions_per_section)
     if st.button("Generate Session", disabled=not selected_labels):
         try:
             generated = service.create_session(
                 [options[label] for label in selected_labels],
-                questions_per_section=int(st.session_state.get("questions_per_section", 5)),
+                questions_per_section=int(questions_per_section),
                 provider_name=str(st.session_state.get("provider", "auto")),
                 document_id=document_id,
             )
             st.session_state["active_session_id"] = generated.session_id
             st.session_state["generated_session"] = generated.model_dump(mode="json")
+            st.session_state["force_active_tab"] = "Session"
             st.session_state.pop("last_result", None)
             st.rerun()
         except (ProviderError, ValueError) as exc:
             st.error(str(exc))
 
 
+def _render_score_summary(score: int, total: int) -> None:
+    """Render a single score line for generated or completed sessions."""
+    st.success(f"Score: {score}/{total}")
+
+
 def _render_generated_session(service: PrepService, generated: dict[str, object]) -> None:
+    """Render active session questions or completed feedback."""
     session = GeneratedSession.model_validate(generated)
     st.caption(f"Status: {session.status} | Provider: {session.provider_result.provider}")
-    if session.score is not None and session.total is not None:
-        st.success(f"Score: {session.score}/{session.total}")
 
     result_payload = st.session_state.get("last_result")
     result = SessionResult.model_validate(result_payload) if result_payload else None
     if result:
-        st.success(f"Score: {result.score}/{result.total}")
-        wrong_by_number = {item.question_number: item for item in result.results if not item.is_correct}
+        _render_score_summary(result.score, result.total)
+        result_by_number = {item.question_number: item for item in result.results}
         for question in result.questions:
             number = question.question_number or 0
             st.markdown(f"**{format_question_heading(number, question.question)}**")
             for choice in question.choices:
                 st.write(f"{choice.label}. {choice.text}")
-            if number in wrong_by_number:
-                item = wrong_by_number[number]
-                st.warning(f"Question {number}: correct answer {item.correct_answer}. {item.clarification}")
+            item = result_by_number.get(number)
+            if item is not None:
+                feedback = format_answer_feedback(
+                    question_number=number,
+                    is_correct=item.is_correct,
+                    correct_answer=item.correct_answer,
+                    clarification=item.clarification,
+                )
+                if item.is_correct:
+                    st.success(feedback)
+                else:
+                    st.warning(feedback)
         return
 
+    if session.score is not None and session.total is not None:
+        _render_score_summary(session.score, session.total)
     if session.status == "completed":
         st.info("This completed session is stored in the Knowledge tab.")
         return
@@ -251,6 +416,7 @@ def _render_generated_session(service: PrepService, generated: dict[str, object]
 
 
 def _render_knowledge_tab(service: PrepService, document_id: int) -> None:
+    """Render readable KB snapshot tables for the active document."""
     snapshot = service.repository.snapshot(limit=10, document_id=document_id)
     tables = kb_snapshot_tables(snapshot)
     st.subheader("Recent Sessions")
@@ -262,9 +428,32 @@ def _render_knowledge_tab(service: PrepService, document_id: int) -> None:
     st.dataframe(service.repository.weak_topics(section_ids, document_id=document_id), width="stretch")
 
 
+def _active_tab() -> str:
+    """Render stateful navigation and return the selected main view."""
+    forced = st.session_state.pop("force_active_tab", None)
+    if forced in NAV_ITEMS:
+        st.session_state["active_tab"] = forced
+        st.session_state["active_tab_selector"] = forced
+    current = st.session_state.get("active_tab", "Start")
+    if current not in NAV_ITEMS:
+        current = "Start"
+    if st.session_state.get("active_tab_selector") not in NAV_ITEMS:
+        st.session_state["active_tab_selector"] = current
+    selected = st.segmented_control(
+        "View",
+        NAV_ITEMS,
+        key="active_tab_selector",
+        label_visibility="collapsed",
+    )
+    if selected:
+        st.session_state["active_tab"] = str(selected)
+    return str(st.session_state.get("active_tab", "Start"))
+
+
 def main() -> None:
     """Render the Streamlit application."""
     st.set_page_config(page_title="PrepBuddy", layout="wide", initial_sidebar_state="expanded")
+    _inject_danger_styles()
     service = _active_service()
     document_id = _render_sidebar(service)
 
@@ -274,25 +463,24 @@ def main() -> None:
         return
 
     document = service.repository.get_document(document_id)
+    provider = st.session_state.get("provider", "auto")
     st.caption(
-        f"{document.title} | {document.page_count} pages | "
-        f"{document.section_count} sections | {document.session_count} sessions"
+        f"Active: {document.title} | {document.page_count} pages | "
+        f"{document.section_count} sections | {document.session_count} sessions | provider: {provider}"
     )
-    documents_tab, prep_tab, session_tab, knowledge_tab = st.tabs(["Documents", "Prep", "Session", "Knowledge"])
-    with documents_tab:
-        st.dataframe(_documents_table(service), width="stretch")
-    with prep_tab:
-        _render_prep_tab(service, document_id)
-    with session_tab:
+
+    tab = _active_tab()
+    if tab == "Start":
+        _render_start_tab(service, document_id)
+    elif tab == "Session":
         generated = st.session_state.get("generated_session")
         if generated:
             _render_generated_session(service, generated)
         else:
             st.info("Generate or open a session from the sidebar.")
-    with knowledge_tab:
+    else:
         _render_knowledge_tab(service, document_id)
 
 
 if __name__ == "__main__":
     main()
-

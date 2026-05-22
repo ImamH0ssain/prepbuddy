@@ -1,112 +1,482 @@
 [
   {
     "canonical_id": 1,
-    "source_label": "Section 1",
-    "title": "Identity, Background, and Public Status",
-    "page_range": "1-4",
+    "source_label": "Pages 1-27",
+    "title": "Document Pages 1-27",
+    "page_range": "1-27",
     "aliases": [
       "1",
-      "identity-background-and-public-status",
+      "document-pages-1-27",
+      "pages-1-27",
       "section-1"
     ]
   },
   {
     "canonical_id": 2,
-    "source_label": "Section 2",
-    "title": "Powers, Abilities, and Documented Limits",
-    "page_range": "4-11",
+    "source_label": "Pages 28-54",
+    "title": "Document Pages 28-54",
+    "page_range": "28-54",
     "aliases": [
       "2",
-      "powers-abilities-and-documented-limits",
+      "document-pages-28-54",
+      "pages-28-54",
       "section-2"
     ]
   },
   {
     "canonical_id": 3,
-    "source_label": "Section 3",
-    "title": "Origin and Key Historical Events",
-    "page_range": "11-15",
+    "source_label": "Pages 55-81",
+    "title": "Document Pages 55-81",
+    "page_range": "55-81",
     "aliases": [
       "3",
-      "origin-and-key-historical-events",
+      "document-pages-55-81",
+      "pages-55-81",
       "section-3"
     ]
   },
   {
     "canonical_id": 4,
-    "source_label": "Section 4",
-    "title": "Equipment, Gear, and Specialized Technology",
-    "page_range": "15-22",
+    "source_label": "Pages 82-108",
+    "title": "Document Pages 82-108",
+    "page_range": "82-108",
     "aliases": [
       "4",
-      "equipment-gear-and-specialized-technology",
+      "document-pages-82-108",
+      "pages-82-108",
       "section-4"
     ]
   },
   {
     "canonical_id": 5,
-    "source_label": "Section 5",
-    "title": "Operational Tactics and Combat Doctrine",
-    "page_range": "22-25",
+    "source_label": "Pages 109-135",
+    "title": "Document Pages 109-135",
+    "page_range": "109-135",
     "aliases": [
       "5",
-      "operational-tactics-and-combat-doctrine",
+      "document-pages-109-135",
+      "pages-109-135",
       "section-5"
     ]
   },
   {
     "canonical_id": 6,
-    "source_label": "Section 6",
-    "title": "Allies, Networks, and Known Affiliations",
-    "page_range": "25-30",
+    "source_label": "Pages 136-162",
+    "title": "Document Pages 136-162",
+    "page_range": "136-162",
     "aliases": [
       "6",
-      "allies-networks-and-known-affiliations",
+      "document-pages-136-162",
+      "pages-136-162",
       "section-6"
     ]
   },
   {
     "canonical_id": 7,
-    "source_label": "Section 7",
-    "title": "Adversaries and Documented Threats",
-    "page_range": "30-36",
+    "source_label": "Pages 163-189",
+    "title": "Document Pages 163-189",
+    "page_range": "163-189",
     "aliases": [
       "7",
-      "adversaries-and-documented-threats",
+      "document-pages-163-189",
+      "pages-163-189",
       "section-7"
     ]
   },
   {
     "canonical_id": 8,
-    "source_label": "Section 8",
-    "title": "Known Bases, Safehouses, and Operational Territory",
-    "page_range": "36-39",
+    "source_label": "Pages 190-217",
+    "title": "Document Pages 190-217",
+    "page_range": "190-217",
     "aliases": [
       "8",
-      "known-bases-safehouses-and-operational-territory",
+      "document-pages-190-217",
+      "pages-190-217",
       "section-8"
     ]
   },
   {
     "canonical_id": 9,
-    "source_label": "Section 9",
-    "title": "Case Files: Documented Engagements and Incidents",
-    "page_range": "39-43",
+    "source_label": "Pages 218-244",
+    "title": "Document Pages 218-244",
+    "page_range": "218-244",
     "aliases": [
       "9",
-      "case-files-documented-engagements-and-incidents",
+      "document-pages-218-244",
+      "pages-218-244",
       "section-9"
     ]
   },
   {
     "canonical_id": 10,
-    "source_label": "Section 10",
-    "title": "Glossary, Codenames, and Reference Tables",
-    "page_range": "43-50",
+    "source_label": "Pages 245-271",
+    "title": "Document Pages 245-271",
+    "page_range": "245-271",
     "aliases": [
       "10",
-      "glossary-codenames-and-reference-tables",
+      "document-pages-245-271",
+      "pages-245-271",
       "section-10"
+    ]
+  },
+  {
+    "canonical_id": 11,
+    "source_label": "Pages 272-298",
+    "title": "Document Pages 272-298",
+    "page_range": "272-298",
+    "aliases": [
+      "11",
+      "document-pages-272-298",
+      "pages-272-298",
+      "section-11"
+    ]
+  },
+  {
+    "canonical_id": 12,
+    "source_label": "Pages 299-325",
+    "title": "Document Pages 299-325",
+    "page_range": "299-325",
+    "aliases": [
+      "12",
+      "document-pages-299-325",
+      "pages-299-325",
+      "section-12"
+    ]
+  },
+  {
+    "canonical_id": 13,
+    "source_label": "Pages 326-352",
+    "title": "Document Pages 326-352",
+    "page_range": "326-352",
+    "aliases": [
+      "13",
+      "document-pages-326-352",
+      "pages-326-352",
+      "section-13"
+    ]
+  },
+  {
+    "canonical_id": 14,
+    "source_label": "Pages 353-379",
+    "title": "Document Pages 353-379",
+    "page_range": "353-379",
+    "aliases": [
+      "14",
+      "document-pages-353-379",
+      "pages-353-379",
+      "section-14"
+    ]
+  },
+  {
+    "canonical_id": 15,
+    "source_label": "Pages 380-407",
+    "title": "Document Pages 380-407",
+    "page_range": "380-407",
+    "aliases": [
+      "15",
+      "document-pages-380-407",
+      "pages-380-407",
+      "section-15"
+    ]
+  },
+  {
+    "canonical_id": 16,
+    "source_label": "Pages 408-434",
+    "title": "Document Pages 408-434",
+    "page_range": "408-434",
+    "aliases": [
+      "16",
+      "document-pages-408-434",
+      "pages-408-434",
+      "section-16"
+    ]
+  },
+  {
+    "canonical_id": 17,
+    "source_label": "Pages 435-461",
+    "title": "Document Pages 435-461",
+    "page_range": "435-461",
+    "aliases": [
+      "17",
+      "document-pages-435-461",
+      "pages-435-461",
+      "section-17"
+    ]
+  },
+  {
+    "canonical_id": 18,
+    "source_label": "Pages 462-488",
+    "title": "Document Pages 462-488",
+    "page_range": "462-488",
+    "aliases": [
+      "18",
+      "document-pages-462-488",
+      "pages-462-488",
+      "section-18"
+    ]
+  },
+  {
+    "canonical_id": 19,
+    "source_label": "Pages 489-515",
+    "title": "Document Pages 489-515",
+    "page_range": "489-515",
+    "aliases": [
+      "19",
+      "document-pages-489-515",
+      "pages-489-515",
+      "section-19"
+    ]
+  },
+  {
+    "canonical_id": 20,
+    "source_label": "Pages 516-542",
+    "title": "Document Pages 516-542",
+    "page_range": "516-542",
+    "aliases": [
+      "20",
+      "document-pages-516-542",
+      "pages-516-542",
+      "section-20"
+    ]
+  },
+  {
+    "canonical_id": 21,
+    "source_label": "Pages 543-569",
+    "title": "Document Pages 543-569",
+    "page_range": "543-569",
+    "aliases": [
+      "21",
+      "document-pages-543-569",
+      "pages-543-569",
+      "section-21"
+    ]
+  },
+  {
+    "canonical_id": 22,
+    "source_label": "Pages 570-597",
+    "title": "Document Pages 570-597",
+    "page_range": "570-597",
+    "aliases": [
+      "22",
+      "document-pages-570-597",
+      "pages-570-597",
+      "section-22"
+    ]
+  },
+  {
+    "canonical_id": 23,
+    "source_label": "Pages 598-624",
+    "title": "Document Pages 598-624",
+    "page_range": "598-624",
+    "aliases": [
+      "23",
+      "document-pages-598-624",
+      "pages-598-624",
+      "section-23"
+    ]
+  },
+  {
+    "canonical_id": 24,
+    "source_label": "Pages 625-651",
+    "title": "Document Pages 625-651",
+    "page_range": "625-651",
+    "aliases": [
+      "24",
+      "document-pages-625-651",
+      "pages-625-651",
+      "section-24"
+    ]
+  },
+  {
+    "canonical_id": 25,
+    "source_label": "Pages 652-679",
+    "title": "Document Pages 652-679",
+    "page_range": "652-679",
+    "aliases": [
+      "25",
+      "document-pages-652-679",
+      "pages-652-679",
+      "section-25"
+    ]
+  },
+  {
+    "canonical_id": 26,
+    "source_label": "Pages 680-706",
+    "title": "Document Pages 680-706",
+    "page_range": "680-706",
+    "aliases": [
+      "26",
+      "document-pages-680-706",
+      "pages-680-706",
+      "section-26"
+    ]
+  },
+  {
+    "canonical_id": 27,
+    "source_label": "Pages 707-733",
+    "title": "Document Pages 707-733",
+    "page_range": "707-733",
+    "aliases": [
+      "27",
+      "document-pages-707-733",
+      "pages-707-733",
+      "section-27"
+    ]
+  },
+  {
+    "canonical_id": 28,
+    "source_label": "Pages 734-760",
+    "title": "Document Pages 734-760",
+    "page_range": "734-760",
+    "aliases": [
+      "28",
+      "document-pages-734-760",
+      "pages-734-760",
+      "section-28"
+    ]
+  },
+  {
+    "canonical_id": 29,
+    "source_label": "Pages 761-787",
+    "title": "Document Pages 761-787",
+    "page_range": "761-787",
+    "aliases": [
+      "29",
+      "document-pages-761-787",
+      "pages-761-787",
+      "section-29"
+    ]
+  },
+  {
+    "canonical_id": 30,
+    "source_label": "Pages 788-814",
+    "title": "Document Pages 788-814",
+    "page_range": "788-814",
+    "aliases": [
+      "30",
+      "document-pages-788-814",
+      "pages-788-814",
+      "section-30"
+    ]
+  },
+  {
+    "canonical_id": 31,
+    "source_label": "Pages 815-842",
+    "title": "Document Pages 815-842",
+    "page_range": "815-842",
+    "aliases": [
+      "31",
+      "document-pages-815-842",
+      "pages-815-842",
+      "section-31"
+    ]
+  },
+  {
+    "canonical_id": 32,
+    "source_label": "Pages 843-869",
+    "title": "Document Pages 843-869",
+    "page_range": "843-869",
+    "aliases": [
+      "32",
+      "document-pages-843-869",
+      "pages-843-869",
+      "section-32"
+    ]
+  },
+  {
+    "canonical_id": 33,
+    "source_label": "Pages 870-896",
+    "title": "Document Pages 870-896",
+    "page_range": "870-896",
+    "aliases": [
+      "33",
+      "document-pages-870-896",
+      "pages-870-896",
+      "section-33"
+    ]
+  },
+  {
+    "canonical_id": 34,
+    "source_label": "Pages 897-923",
+    "title": "Document Pages 897-923",
+    "page_range": "897-923",
+    "aliases": [
+      "34",
+      "document-pages-897-923",
+      "pages-897-923",
+      "section-34"
+    ]
+  },
+  {
+    "canonical_id": 35,
+    "source_label": "Pages 924-952",
+    "title": "Document Pages 924-952",
+    "page_range": "924-952",
+    "aliases": [
+      "35",
+      "document-pages-924-952",
+      "pages-924-952",
+      "section-35"
+    ]
+  },
+  {
+    "canonical_id": 36,
+    "source_label": "Pages 953-979",
+    "title": "Document Pages 953-979",
+    "page_range": "953-979",
+    "aliases": [
+      "36",
+      "document-pages-953-979",
+      "pages-953-979",
+      "section-36"
+    ]
+  },
+  {
+    "canonical_id": 37,
+    "source_label": "Pages 980-1006",
+    "title": "Document Pages 980-1006",
+    "page_range": "980-1006",
+    "aliases": [
+      "37",
+      "document-pages-980-1006",
+      "pages-980-1006",
+      "section-37"
+    ]
+  },
+  {
+    "canonical_id": 38,
+    "source_label": "Pages 1007-1033",
+    "title": "Document Pages 1007-1033",
+    "page_range": "1007-1033",
+    "aliases": [
+      "38",
+      "document-pages-1007-1033",
+      "pages-1007-1033",
+      "section-38"
+    ]
+  },
+  {
+    "canonical_id": 39,
+    "source_label": "Pages 1034-1060",
+    "title": "Document Pages 1034-1060",
+    "page_range": "1034-1060",
+    "aliases": [
+      "39",
+      "document-pages-1034-1060",
+      "pages-1034-1060",
+      "section-39"
+    ]
+  },
+  {
+    "canonical_id": 40,
+    "source_label": "Pages 1061-1071",
+    "title": "Document Pages 1061-1071",
+    "page_range": "1061-1071",
+    "aliases": [
+      "40",
+      "document-pages-1061-1071",
+      "pages-1061-1071",
+      "section-40"
     ]
   }
 ]

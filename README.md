@@ -53,6 +53,32 @@ python -m pip install -e ".[dev,ui]"
 prepbuddy doctor
 ```
 
+## Quick Start in Windows PowerShell
+
+```powershell
+cd F:\prepbuddy
+py -3.12 -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev,ui]"
+prepbuddy doctor --paths
+```
+
+If PowerShell blocks activation scripts, run this once in the current shell:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
+```
+
+The Windows console command is installed as `.\venv\Scripts\prepbuddy.exe`, and an activated shell can run it as `prepbuddy`. The UI defaults to non-headless Streamlit mode on Windows, so this opens the browser automatically:
+
+```powershell
+prepbuddy ui
+```
+
+If a browser cannot be opened by the environment, use `prepbuddy ui --no-open-browser` and open the printed Local URL manually.
+
 Ingest the provided PDF:
 
 ```bash
@@ -81,7 +107,7 @@ Open the UI:
 prepbuddy ui
 ```
 
-The UI includes a sidebar PDF uploader, document selector, session drawer, provider settings, Gemini API key input, and delete controls. Gemini keys entered in the sidebar are session-only unless you explicitly check the save option to update `.env`.
+The UI opens on the **Start** view: active documents table, document selector, section mapping, section selector, question count, and the Generate Session button. Generation automatically switches to the **Session** view. The sidebar keeps upload/document controls together, includes a session drawer, provider settings, Gemini API key input, and red confirmation buttons for destructive actions. Gemini keys entered in the sidebar are session-only unless you explicitly check the save option to update `.env`.
 
 ## Ollama Local Mode
 
@@ -127,16 +153,22 @@ prepbuddy kb-snapshot --document latest --limit 5
 prepbuddy export-kb --document latest --format json --limit 5 --out kb_snapshot.json
 prepbuddy delete-session <session_id> --yes
 prepbuddy delete-document <document_id> --yes --keep-file
+prepbuddy delete-all-documents --yes
+prepbuddy delete-all-sessions --yes
+prepbuddy clear-knowledge-base --yes
+prepbuddy clear-everything --yes
 prepbuddy config set-gemini-key --key ...
 prepbuddy api --host 127.0.0.1 --port 8000
 prepbuddy ui --open-browser
 ```
 
-`prepbuddy ui` defaults to browser launch. If your environment cannot open a browser, run `prepbuddy ui --no-open-browser` and open the Local URL printed by Streamlit, usually `http://localhost:8501`.
+`delete-document` archives the selected document and optionally removes its managed upload file. It does not delete sessions or learning history, so uploading the same PDF again reactivates the document with its previous history. `clear-everything` is the hard-delete operation.
+
+`prepbuddy ui` defaults to browser launch on Windows and WSL. If your environment cannot open a browser, run `prepbuddy ui --no-open-browser` and open the Local URL printed by Streamlit, usually `http://localhost:8501`.
 
 ## Windows and WSL Paths
 
-The managed upload library lives under `data/uploads/`. Document records store project-local paths where possible and show both Windows-style and WSL-style display paths in the UI and `prepbuddy doctor --paths`. Commands work from either `F:\prepbuddy` in PowerShell or `/mnt/f/prepbuddy` in WSL as long as the same virtual environment and database path are configured.
+The managed upload library lives under `data/uploads/`. Document records store project-local paths where possible and show both Windows-style and WSL-style display paths in the UI and `prepbuddy doctor --paths`. Commands work from either `F:\prepbuddy` in PowerShell with `venv` or `/mnt/f/prepbuddy` in WSL with `projectenv` as long as both environments use the same project directory and database path.
 
 Scenario B writes:
 
@@ -165,6 +197,7 @@ Endpoints:
 - `GET /documents`
 - `POST /documents/ingest`
 - `POST /documents/upload`
+- `DELETE /documents`
 - `DELETE /documents/{document_id}`
 - `GET /sections`
 - `GET /sections/mapping`
@@ -174,10 +207,13 @@ Endpoints:
 - `POST /sessions`
 - `POST /sessions/{session_id}/answers`
 - `GET /sessions/{session_id}`
+- `DELETE /sessions`
 - `DELETE /sessions/{session_id}`
 - `GET /history?section_ids=5,8`
 - `GET /kb/snapshot?limit=5`
+- `DELETE /kb`
 - `GET /documents/{document_id}/kb/snapshot?limit=5`
+- `DELETE /maintenance/everything`
 
 ## Section Mapping
 
@@ -215,6 +251,8 @@ If a future PDF uses different labels, create `config/section_mapping.json`:
 
 Scenario commands apply this mapping before resolving sections. If multiple PDFs are ingested, use `--document <id>` or `--document latest` to select the right mapping.
 
+For textbooks, reports, and other PDFs where repeated bullets or references make headings unreliable, ingestion falls back to stable page-range sections such as `Pages 1-27`. This keeps arbitrary machine-readable PDFs usable while preserving direct section detection for dossier-style files and chapter detection for report-style files.
+
 ## Knowledge Base
 
 SQLite tables:
@@ -222,9 +260,9 @@ SQLite tables:
 - `documents`, `sections`, `section_aliases`, `section_chunks`
 - `prep_sessions`, `session_sections`
 - `questions`, `answer_choices`, `answers`
-- `topic_stats`, `kb_snapshots`, `generation_events`
+- `topic_stats`, `kb_snapshots`, `generation_events`, `app_state`
 
-The KB supports prior-session lookup by document and section IDs, question-level answer history, weak-topic aggregation, and recent session snapshots. CLI and UI snapshots render readable tables; JSON remains available for exports and APIs.
+The KB supports prior-session lookup by document and section IDs, question-level answer history, weak-topic aggregation, and recent session snapshots. Archived documents are hidden from the default document list but retain sections and sessions for reupload history. `clear-knowledge-base` records a reset marker so old sessions stay visible but no longer influence adaptation. CLI and UI snapshots render readable tables; JSON remains available for exports and APIs.
 
 ## Tests
 
@@ -234,24 +272,65 @@ pytest -q
 ruff check .
 ```
 
-The tests cover flexible section parsing, explicit mapping overrides, duplicate alias rejection, session scoring, Scenario B exports/adaptation, and the API session flow.
+Windows:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+pytest -q
+ruff check .
+```
+
+The tests cover flexible section parsing, explicit mapping overrides, ambiguous alias handling, session scoring, Scenario B exports/adaptation, Docker config checks, and the API session flow.
 
 ## Docker
 
-Build and run the API with environment-provided Gemini or host Ollama settings:
+Docker requires Docker Desktop or another Docker engine on your PATH. In this environment Docker was not installed in Windows or WSL, so Docker build/runtime verification could not be executed here; the Docker files are covered by static tests.
 
-```bash
-docker compose up --build
+Compose reads `.env` automatically for variable substitution. For Gemini:
+
+```env
+GEMINI_API_KEY=...
+PREPBUDDY_LLM_PROVIDER=auto
 ```
 
-Run with an Ollama service profile:
+Build and run the API:
 
 ```bash
-docker compose --profile local-ollama up --build
+docker compose up --build app
+```
+
+Open the API docs at `http://localhost:8000/docs`.
+
+Run the Streamlit UI in Docker:
+
+```bash
+docker compose --profile ui up --build ui
+```
+
+Docker containers cannot reliably open the host browser for you, so open `http://localhost:8501` manually.
+
+Use Ollama running on the host, including Windows or WSL Ollama, with the default compose setting:
+
+```bash
+docker compose up --build app
+```
+
+Use the containerized Ollama profile instead:
+
+```bash
+PREPBUDDY_OLLAMA_BASE_URL=http://ollama:11434 docker compose --profile local-ollama up --build app ollama
 docker compose exec ollama ollama pull qwen3:4b-instruct
 ```
 
-The compose file mounts `data/`, `config/`, `outputs/`, and the provided PDFs into the app container.
+PowerShell equivalent:
+
+```powershell
+$env:PREPBUDDY_OLLAMA_BASE_URL = "http://ollama:11434"
+docker compose --profile local-ollama up --build app ollama
+docker compose exec ollama ollama pull qwen3:4b-instruct
+```
+
+The compose file mounts `data/`, `config/`, `outputs/`, `docs/`, and the provided PDFs into the app/UI containers. `.dockerignore` excludes local virtual environments, uploaded runtime PDFs, SQLite files, logs, and outputs from the image build context.
 
 ## Known Limitations
 
