@@ -1,0 +1,112 @@
+[
+  {
+    "canonical_id": 1,
+    "source_label": "Section 1",
+    "title": "Identity, Background, and Public Status",
+    "page_range": "1-4",
+    "aliases": [
+      "1",
+      "identity-background-and-public-status",
+      "section-1"
+    ]
+  },
+  {
+    "canonical_id": 2,
+    "source_label": "Section 2",
+    "title": "Powers, Abilities, and Documented Limits",
+    "page_range": "4-11",
+    "aliases": [
+      "2",
+      "powers-abilities-and-documented-limits",
+      "section-2"
+    ]
+  },
+  {
+    "canonical_id": 3,
+    "source_label": "Section 3",
+    "title": "Origin and Key Historical Events",
+    "page_range": "11-15",
+    "aliases": [
+      "3",
+      "origin-and-key-historical-events",
+      "section-3"
+    ]
+  },
+  {
+    "canonical_id": 4,
+    "source_label": "Section 4",
+    "title": "Equipment, Gear, and Specialized Technology",
+    "page_range": "15-22",
+    "aliases": [
+      "4",
+      "equipment-gear-and-specialized-technology",
+      "section-4"
+    ]
+  },
+  {
+    "canonical_id": 5,
+    "source_label": "Section 5",
+    "title": "Operational Tactics and Combat Doctrine",
+    "page_range": "22-25",
+    "aliases": [
+      "5",
+      "operational-tactics-and-combat-doctrine",
+      "section-5"
+    ]
+  },
+  {
+    "canonical_id": 6,
+    "source_label": "Section 6",
+    "title": "Allies, Networks, and Known Affiliations",
+    "page_range": "25-30",
+    "aliases": [
+      "6",
+      "allies-networks-and-known-affiliations",
+      "section-6"
+    ]
+  },
+  {
+    "canonical_id": 7,
+    "source_label": "Section 7",
+    "title": "Adversaries and Documented Threats",
+    "page_range": "30-36",
+    "aliases": [
+      "7",
+      "adversaries-and-documented-threats",
+      "section-7"
+    ]
+  },
+  {
+    "canonical_id": 8,
+    "source_label": "Section 8",
+    "title": "Known Bases, Safehouses, and Operational Territory",
+    "page_range": "36-39",
+    "aliases": [
+      "8",
+      "known-bases-safehouses-and-operational-territory",
+      "section-8"
+    ]
+  },
+  {
+    "canonical_id": 9,
+    "source_label": "Section 9",
+    "title": "Case Files: Documented Engagements and Incidents",
+    "page_range": "39-43",
+    "aliases": [
+      "9",
+      "case-files-documented-engagements-and-incidents",
+      "section-9"
+    ]
+  },
+  {
+    "canonical_id": 10,
+    "source_label": "Section 10",
+    "title": "Glossary, Codenames, and Reference Tables",
+    "page_range": "43-50",
+    "aliases": [
+      "10",
+      "glossary-codenames-and-reference-tables",
+      "section-10"
+    ]
+  }
+]

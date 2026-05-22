@@ -1,0 +1,261 @@
+{
+  "session": {
+    "session_id": "d21dd523-062d-44da-b53a-77fe3dcbaf21",
+    "sections": [
+      6,
+      8,
+      9
+    ],
+    "score": 2,
+    "total": 6,
+    "results": [
+      {
+        "question_id": "079f170f-6767-4981-a939-00dd944f6bb5",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-6-topic-1."
+      },
+      {
+        "question_id": "0f3b607e-ac2a-493d-bf7c-06faca9a1bd8",
+        "selected_answer": "A",
+        "correct_answer": "A",
+        "is_correct": true,
+        "clarification": "Correct."
+      },
+      {
+        "question_id": "9d755401-773e-4ce3-a509-c2ebe30b3986",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-8-topic-1."
+      },
+      {
+        "question_id": "c8747d55-2c76-4c95-8eb5-c9676b3ad88c",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-8-topic-2."
+      },
+      {
+        "question_id": "59a43ac1-0c73-4f6a-843a-fb12d7153a99",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-9-topic-1."
+      },
+      {
+        "question_id": "b502cd8c-b2bb-4324-bc1f-5f20bff88e7a",
+        "selected_answer": "A",
+        "correct_answer": "A",
+        "is_correct": true,
+        "clarification": "Correct."
+      }
+    ],
+    "adaptation_context": {
+      "prior_session_count": 1,
+      "weak_topics": [
+        {
+          "section_id": 8,
+          "topic": "section-8-topic-1",
+          "attempts": 1,
+          "wrong": 1,
+          "correct": 0
+        },
+        {
+          "section_id": 8,
+          "topic": "section-8-topic-2",
+          "attempts": 1,
+          "wrong": 1,
+          "correct": 0
+        }
+      ],
+      "avoid_fingerprints": [
+        "4ec96582b0119c25085b715c9545c51d6a0c4423788afa885d4abe2c43fbe124",
+        "38e8fa7e8fe7991ada8f174c7b000fbc1e47e91e09e5b735645a1e31b756214f"
+      ]
+    },
+    "questions": [
+      {
+        "id": "079f170f-6767-4981-a939-00dd944f6bb5",
+        "section_id": 6,
+        "topic": "section-6-topic-1",
+        "question": "For Allies, Networks, and Known Affiliations, which statement best matches section-6-topic-1? (generated item 1)",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-6-topic-1."
+          },
+          {
+            "label": "B",
+            "text": "section-6-topic-1 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-6-topic-1 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-6-topic-1."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-6-topic-1.",
+        "source_chunk_ids": [
+          "doc1:s6:c1"
+        ],
+        "fingerprint": "2c8a8ef0e8cbc50c34cd6b562ff412f0d4e8899c87a0b13d00063f31937b7a8d"
+      },
+      {
+        "id": "0f3b607e-ac2a-493d-bf7c-06faca9a1bd8",
+        "section_id": 6,
+        "topic": "section-6-topic-2",
+        "question": "For Allies, Networks, and Known Affiliations, which statement best matches section-6-topic-2? (generated item 2)",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-6-topic-2."
+          },
+          {
+            "label": "B",
+            "text": "section-6-topic-2 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-6-topic-2 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-6-topic-2."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-6-topic-2.",
+        "source_chunk_ids": [
+          "doc1:s6:c1"
+        ],
+        "fingerprint": "36281a5882107a8e50509f209afee6428803a2f360b06ebb40fa52bb7f05e67b"
+      },
+      {
+        "id": "9d755401-773e-4ce3-a509-c2ebe30b3986",
+        "section_id": 8,
+        "topic": "section-8-topic-1",
+        "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-1? (generated item 1) Variant 3.",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-8-topic-1."
+          },
+          {
+            "label": "B",
+            "text": "section-8-topic-1 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-8-topic-1 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-8-topic-1."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-8-topic-1.",
+        "source_chunk_ids": [
+          "doc1:s8:c1"
+        ],
+        "fingerprint": "bd143042626e61f35f7d3ea449cc236bae6bcfcea0afbbe75038e6c24a97519d"
+      },
+      {
+        "id": "c8747d55-2c76-4c95-8eb5-c9676b3ad88c",
+        "section_id": 8,
+        "topic": "section-8-topic-2",
+        "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-2? (generated item 2) Variant 4.",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-8-topic-2."
+          },
+          {
+            "label": "B",
+            "text": "section-8-topic-2 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-8-topic-2 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-8-topic-2."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-8-topic-2.",
+        "source_chunk_ids": [
+          "doc1:s8:c1"
+        ],
+        "fingerprint": "d8e199093d5032e7dd42abd0589707e1ce9732a5e205684485c40d8c8a7f5fc2"
+      },
+      {
+        "id": "59a43ac1-0c73-4f6a-843a-fb12d7153a99",
+        "section_id": 9,
+        "topic": "section-9-topic-1",
+        "question": "For Case Files: Documented Engagements and Incidents, which statement best matches section-9-topic-1? (generated item 1)",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-9-topic-1."
+          },
+          {
+            "label": "B",
+            "text": "section-9-topic-1 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-9-topic-1 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-9-topic-1."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-9-topic-1.",
+        "source_chunk_ids": [
+          "doc1:s9:c1"
+        ],
+        "fingerprint": "bc2c87a9a4177e871b1111d9fd9a9ad5bb98c42e7e5f033ac2d1858841788931"
+      },
+      {
+        "id": "b502cd8c-b2bb-4324-bc1f-5f20bff88e7a",
+        "section_id": 9,
+        "topic": "section-9-topic-2",
+        "question": "For Case Files: Documented Engagements and Incidents, which statement best matches section-9-topic-2? (generated item 2)",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-9-topic-2."
+          },
+          {
+            "label": "B",
+            "text": "section-9-topic-2 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-9-topic-2 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-9-topic-2."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-9-topic-2.",
+        "source_chunk_ids": [
+          "doc1:s9:c1"
+        ],
+        "fingerprint": "43fa6b0278f6c977576a92be8f5af724cc85cc8bd6ec582f404844c342377a01"
+      }
+    ]
+  }
+}

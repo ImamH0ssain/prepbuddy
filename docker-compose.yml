@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      PREPBUDDY_DB_URL: sqlite:///data/prepbuddy.sqlite
+      PREPBUDDY_OLLAMA_BASE_URL: ${PREPBUDDY_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./outputs:/app/outputs
+      - ./docs:/app/docs
+      - ./SLATEFALL_DOSSIER.pdf:/app/SLATEFALL_DOSSIER.pdf:ro
+      - ./assessment_brief.pdf:/app/assessment_brief.pdf:ro
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  ollama:
+

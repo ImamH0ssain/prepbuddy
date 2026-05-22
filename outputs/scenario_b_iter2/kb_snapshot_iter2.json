@@ -1,0 +1,149 @@
+{
+  "generated_at": "2026-05-19T16:35:32.060048Z",
+  "sessions": [
+    {
+      "session_id": "d21dd523-062d-44da-b53a-77fe3dcbaf21",
+      "created_at": "2026-05-19T16:35:32.003934",
+      "completed_at": "2026-05-19T16:35:32.025996",
+      "sections": [
+        6,
+        8,
+        9
+      ],
+      "score": 2,
+      "total": 6,
+      "questions": [
+        {
+          "question_id": "079f170f-6767-4981-a939-00dd944f6bb5",
+          "section_id": 6,
+          "topic": "section-6-topic-1",
+          "question": "For Allies, Networks, and Known Affiliations, which statement best matches section-6-topic-1? (generated item 1)",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "0f3b607e-ac2a-493d-bf7c-06faca9a1bd8",
+          "section_id": 6,
+          "topic": "section-6-topic-2",
+          "question": "For Allies, Networks, and Known Affiliations, which statement best matches section-6-topic-2? (generated item 2)",
+          "correct_answer": "A",
+          "selected_answer": "A",
+          "is_correct": true
+        },
+        {
+          "question_id": "9d755401-773e-4ce3-a509-c2ebe30b3986",
+          "section_id": 8,
+          "topic": "section-8-topic-1",
+          "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-1? (generated item 1) Variant 3.",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "c8747d55-2c76-4c95-8eb5-c9676b3ad88c",
+          "section_id": 8,
+          "topic": "section-8-topic-2",
+          "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-2? (generated item 2) Variant 4.",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "59a43ac1-0c73-4f6a-843a-fb12d7153a99",
+          "section_id": 9,
+          "topic": "section-9-topic-1",
+          "question": "For Case Files: Documented Engagements and Incidents, which statement best matches section-9-topic-1? (generated item 1)",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "b502cd8c-b2bb-4324-bc1f-5f20bff88e7a",
+          "section_id": 9,
+          "topic": "section-9-topic-2",
+          "question": "For Case Files: Documented Engagements and Incidents, which statement best matches section-9-topic-2? (generated item 2)",
+          "correct_answer": "A",
+          "selected_answer": "A",
+          "is_correct": true
+        }
+      ]
+    },
+    {
+      "session_id": "d493bb54-f45e-49ef-af2d-290889162ee0",
+      "created_at": "2026-05-19T16:35:31.889736",
+      "completed_at": "2026-05-19T16:35:31.919826",
+      "sections": [
+        5,
+        8
+      ],
+      "score": 1,
+      "total": 4,
+      "questions": [
+        {
+          "question_id": "a3f228b7-9715-4648-90dd-e206fc88cd87",
+          "section_id": 5,
+          "topic": "section-5-topic-1",
+          "question": "For Operational Tactics and Combat Doctrine, which statement best matches section-5-topic-1? (generated item 1)",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "3e116908-0b7d-439b-8b11-bbc918d44dc9",
+          "section_id": 5,
+          "topic": "section-5-topic-2",
+          "question": "For Operational Tactics and Combat Doctrine, which statement best matches section-5-topic-2? (generated item 2)",
+          "correct_answer": "A",
+          "selected_answer": "A",
+          "is_correct": true
+        },
+        {
+          "question_id": "da1342b9-396f-4070-8ebd-f71a57e690f7",
+          "section_id": 8,
+          "topic": "section-8-topic-1",
+          "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-1? (generated item 1)",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        },
+        {
+          "question_id": "950ebe7c-1453-4dcf-8ed2-f2c990284bf6",
+          "section_id": 8,
+          "topic": "section-8-topic-2",
+          "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-2? (generated item 2)",
+          "correct_answer": "A",
+          "selected_answer": "B",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "session_id": "d2e30f7e-1fd5-435b-803b-36650d8b76e0",
+      "created_at": "2026-05-19T15:44:15.885680",
+      "completed_at": "2026-05-19T15:44:15.961062",
+      "sections": [],
+      "score": 0,
+      "total": 1,
+      "questions": []
+    },
+    {
+      "session_id": "94d7f57c-c402-40e7-9d9f-a0518d18cee9",
+      "created_at": "2026-05-19T15:34:43.533808",
+      "completed_at": "2026-05-19T15:34:43.551205",
+      "sections": [],
+      "score": 0,
+      "total": 2,
+      "questions": []
+    },
+    {
+      "session_id": "4d5542d4-4274-4943-83d9-f7664e9eeb10",
+      "created_at": "2026-05-19T15:34:43.414797",
+      "completed_at": "2026-05-19T15:34:43.438245",
+      "sections": [],
+      "score": 2,
+      "total": 6,
+      "questions": []
+    }
+  ]
+}

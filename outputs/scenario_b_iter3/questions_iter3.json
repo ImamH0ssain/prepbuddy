@@ -1,0 +1,113 @@
+{
+  "session": {
+    "session_id": "f99d3480-70d4-4285-aceb-1823de9c7692",
+    "sections": [
+      8
+    ],
+    "score": 0,
+    "total": 2,
+    "results": [
+      {
+        "question_id": "6e6a4ba7-8cb8-418d-ae5e-adc6027c66a5",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-8-topic-1."
+      },
+      {
+        "question_id": "66f00be9-a25e-4870-b6ca-63eb0ae4e666",
+        "selected_answer": "B",
+        "correct_answer": "A",
+        "is_correct": false,
+        "clarification": "The relevant section context supports section-8-topic-2."
+      }
+    ],
+    "adaptation_context": {
+      "prior_session_count": 2,
+      "weak_topics": [
+        {
+          "section_id": 8,
+          "topic": "section-8-topic-1",
+          "attempts": 2,
+          "wrong": 2,
+          "correct": 0
+        },
+        {
+          "section_id": 8,
+          "topic": "section-8-topic-2",
+          "attempts": 2,
+          "wrong": 2,
+          "correct": 0
+        }
+      ],
+      "avoid_fingerprints": [
+        "bd143042626e61f35f7d3ea449cc236bae6bcfcea0afbbe75038e6c24a97519d",
+        "d8e199093d5032e7dd42abd0589707e1ce9732a5e205684485c40d8c8a7f5fc2",
+        "4ec96582b0119c25085b715c9545c51d6a0c4423788afa885d4abe2c43fbe124",
+        "38e8fa7e8fe7991ada8f174c7b000fbc1e47e91e09e5b735645a1e31b756214f"
+      ]
+    },
+    "questions": [
+      {
+        "id": "6e6a4ba7-8cb8-418d-ae5e-adc6027c66a5",
+        "section_id": 8,
+        "topic": "section-8-topic-1",
+        "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-1? (generated item 1) Variant 1.",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-8-topic-1."
+          },
+          {
+            "label": "B",
+            "text": "section-8-topic-1 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-8-topic-1 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-8-topic-1."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-8-topic-1.",
+        "source_chunk_ids": [
+          "doc1:s8:c1"
+        ],
+        "fingerprint": "051043f67d835ecca8c230724447b957c020695fbab26abe3ca2c279567fc63c"
+      },
+      {
+        "id": "66f00be9-a25e-4870-b6ca-63eb0ae4e666",
+        "section_id": 8,
+        "topic": "section-8-topic-2",
+        "question": "For Known Bases, Safehouses, and Operational Territory, which statement best matches section-8-topic-2? (generated item 2) Variant 2.",
+        "choices": [
+          {
+            "label": "A",
+            "text": "The dossier supports section-8-topic-2."
+          },
+          {
+            "label": "B",
+            "text": "section-8-topic-2 is unrelated to this section."
+          },
+          {
+            "label": "C",
+            "text": "section-8-topic-2 contradicts the section title."
+          },
+          {
+            "label": "D",
+            "text": "The document omits section-8-topic-2."
+          }
+        ],
+        "correct_answer": "A",
+        "explanation": "The relevant section context supports section-8-topic-2.",
+        "source_chunk_ids": [
+          "doc1:s8:c1"
+        ],
+        "fingerprint": "dce9089efe0377c7151b44aa14a7130d4c9d3455d1ea6b0acb49678bec055c25"
+      }
+    ]
+  }
+}
