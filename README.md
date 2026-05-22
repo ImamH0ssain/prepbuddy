@@ -52,7 +52,7 @@ flowchart TD
 Open PowerShell:
 
 ```powershell
-cd F:\prepbuddy
+cd ~\prepbuddy
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -72,7 +72,7 @@ After installation, run commands as `prepbuddy ...`. You do not need to use `pyt
 ## Install on WSL or Linux
 
 ```bash
-cd /mnt/f/prepbuddy
+cd /mnt/~/prepbuddy
 python3 -m venv projectenv
 source projectenv/bin/activate
 python -m pip install --upgrade pip
