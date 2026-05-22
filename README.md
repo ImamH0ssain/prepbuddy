@@ -1,59 +1,55 @@
-# PrepBuddy: Adaptive PDF Preparation
+# PrepBuddy
 
-PrepBuddy is a backend-driven preparation system for machine-readable PDFs. It ingests a library of multi-section documents, lets a user select one PDF and its sections, generates MCQs from those sections, scores answers, persists every session in SQLite, and adapts later question sets toward historically weak topics while avoiding excessive repetition.
+PrepBuddy turns PDFs into adaptive study sessions. Upload a document, choose the sections you want to review, generate grounded multiple-choice questions, answer them, and let the app use your history to focus later sessions on weak topics.
 
-The default assessment corpus is `SLATEFALL_DOSSIER.pdf`. The system does not assume the source PDF uses section numbers `1-10`: ingestion assigns canonical reviewer-facing IDs by top-level section order, preserves each source label/title, and writes the resolved mapping to `data/section_mapping.json`, `docs/section_mapping.md`, and per-document mapping files under `data/mappings/` and `docs/mappings/`.
+It is designed to stay practical: a local SQLite database, a `prepbuddy` command-line entry point, a FastAPI backend, and a Streamlit UI. You can use Gemini for faster hosted generation, Ollama for local/offline generation, or the deterministic fake provider for demos and tests.
+
+## What It Does
+
+- Manages a library of uploaded PDFs.
+- Builds a per-document section map, even when the PDF is a report, book, textbook, or dossier with different heading styles.
+- Generates MCQs from selected sections using Gemini, Ollama, or a deterministic local provider.
+- Scores sessions and shows clear feedback for correct and wrong answers.
+- Preserves document-specific learning history so different PDFs do not pollute each other's adaptive data.
+- Archives deleted documents by default, so reuploading the same PDF restores its history.
+- Exposes the same core workflow through a browser UI, CLI, and REST API.
+- Runs on Windows, WSL/Linux, and Docker.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    CLI[prepbuddy CLI] --> Service[PrepService]
+    UI[Streamlit UI] --> Service[PrepService]
+    CLI[prepbuddy CLI] --> Service
     API[FastAPI REST API] --> Service
-    UI[Streamlit UI] --> Service
 
     Service --> Ingestion[PDF Ingestion]
-    Ingestion --> Mapper[Section Mapping Resolver]
-    Mapper --> KB[Knowledge Base Repository]
+    Ingestion --> Mapping[Section Mapping Resolver]
+    Mapping --> Repo[Repository Layer]
 
-    Service --> KB
-    Service --> Adapt[Adaptive Prompt Builder]
-    Service --> Scoring[Scoring and Clarifications]
-    Adapt --> ProviderRouter[LLM Provider Router]
+    Service --> Prompting[Adaptive Prompt Builder]
+    Service --> Scoring[Scoring and Feedback]
+    Prompting --> Providers[LLM Provider Router]
 
-    ProviderRouter --> Gemini[Gemini 3.1 Flash-Lite API]
-    ProviderRouter --> Ollama[Ollama qwen3:4b-instruct]
-    ProviderRouter --> Fake[Fake Provider for Tests]
+    Providers --> Gemini[Gemini API]
+    Providers --> Ollama[Ollama Local Model]
+    Providers --> Fake[Fake Provider]
 
-    KB --> SQLite[(SQLite prepbuddy.sqlite)]
-    Service --> Outputs[outputs/scenario_b_iter*/ JSON exports]
-    Mapper --> MappingDoc[docs/section_mapping.md and data/section_mapping.json]
+    Repo --> SQLite[(SQLite)]
+    Service --> Exports[JSON and KB Exports]
 ```
 
-## Stack Choices
+## Requirements
 
-- Python 3.12 with a `src/` package layout and a console script so reviewers run `prepbuddy`, not `python -m ...`.
-- Typer + Rich for ergonomic CLI commands and readable tables.
-- FastAPI for REST endpoints and automatic OpenAPI docs.
-- SQLite + SQLAlchemy 2.x for a small, local, queryable KB with simple setup.
-- PyMuPDF for fast machine-readable PDF text extraction.
-- Gemini 3.1 Flash-Lite as the primary API provider when `GEMINI_API_KEY` is set.
-- Ollama `qwen3:4b-instruct` as the local fallback.
-- Streamlit for the optional minimal UI.
+- Python 3.12 or newer.
+- PDFs with extractable text. Scanned PDFs should be OCR'd first.
+- Optional: a Gemini API key for hosted inference.
+- Optional: Ollama with `qwen3:4b-instruct` for local inference.
+- Optional: Docker Desktop or another Docker engine.
 
-No vector store is used in v1 because the assessment asks users to select explicit section IDs. SQLite is simpler, faster to set up, and enough for the required adaptive history queries.
+## Install on Windows
 
-## Quick Start in WSL
-
-```bash
-cd /mnt/f/prepbuddy
-python3 -m venv projectenv
-source projectenv/bin/activate
-python -m pip install -e ".[dev,ui]"
-prepbuddy doctor
-```
-
-## Quick Start in Windows PowerShell
+Open PowerShell:
 
 ```powershell
 cd F:\prepbuddy
@@ -64,182 +60,190 @@ python -m pip install -e ".[dev,ui]"
 prepbuddy doctor --paths
 ```
 
-If PowerShell blocks activation scripts, run this once in the current shell:
+If PowerShell blocks activation scripts for the current shell session:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\venv\Scripts\Activate.ps1
 ```
 
-The Windows console command is installed as `.\venv\Scripts\prepbuddy.exe`, and an activated shell can run it as `prepbuddy`. The UI defaults to non-headless Streamlit mode on Windows, so this opens the browser automatically:
+After installation, run commands as `prepbuddy ...`. You do not need to use `python -m`.
 
-```powershell
-prepbuddy ui
-```
-
-If a browser cannot be opened by the environment, use `prepbuddy ui --no-open-browser` and open the printed Local URL manually.
-
-Ingest the provided PDF:
+## Install on WSL or Linux
 
 ```bash
-prepbuddy ingest --pdf SLATEFALL_DOSSIER.pdf
-prepbuddy sections
-prepbuddy map-sections
+cd /mnt/f/prepbuddy
+python3 -m venv projectenv
+source projectenv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev,ui]"
+prepbuddy doctor --paths
 ```
 
-Run the required scenario with a deterministic provider:
+## Configure Models
+
+PrepBuddy chooses providers in this order when `PREPBUDDY_LLM_PROVIDER=auto`:
+
+1. Gemini, when `GEMINI_API_KEY` is available.
+2. Ollama, when the local Ollama server and model are available.
+
+Create a `.env` file from the example:
 
 ```bash
-prepbuddy scenario-b --llm fake --questions-per-section 2 --out outputs
+cp .env.example .env
 ```
 
-Run with the configured production provider:
+For Gemini, set:
 
-```bash
-prepbuddy scenario-b --llm auto --out outputs
+```text
+GEMINI_API_KEY=your-key
+PREPBUDDY_LLM_PROVIDER=auto
 ```
 
-`auto` uses Gemini when `GEMINI_API_KEY` is configured. Otherwise it uses local Ollama when `qwen3:4b-instruct` is reachable at `PREPBUDDY_OLLAMA_BASE_URL` or `http://localhost:11434`.
-
-Open the UI:
-
-```bash
-prepbuddy ui
-```
-
-The UI opens on the **Start** view: active documents table, document selector, section mapping, section selector, question count, and the Generate Session button. Generation automatically switches to the **Session** view. The sidebar keeps upload/document controls together, includes a session drawer, provider settings, Gemini API key input, and red confirmation buttons for destructive actions. Gemini keys entered in the sidebar are session-only unless you explicitly check the save option to update `.env`.
-
-## Ollama Local Mode
-
-In WSL:
+For Ollama:
 
 ```bash
 ollama serve
 ollama pull qwen3:4b-instruct
 prepbuddy doctor
-prepbuddy prep --sections 5,8 --answers-mode simulate --llm ollama
 ```
 
-The user already has `qwen3:4b-instruct` downloaded in WSL, so this path should work without another model download.
+Provider options:
 
-## Gemini API Mode
+- `auto`: use Gemini when configured, otherwise use Ollama.
+- `gemini`: require Gemini.
+- `ollama`: require Ollama.
+- `fake`: deterministic generation for tests and demos.
 
-Create `.env` from `.env.example` and set:
+## Quick Start
+
+Ingest a PDF:
 
 ```bash
-GEMINI_API_KEY=...
-PREPBUDDY_LLM_PROVIDER=auto
+prepbuddy ingest --pdf SLATEFALL_DOSSIER.pdf
+prepbuddy documents
+prepbuddy sections --document latest
+prepbuddy map-sections --document latest
 ```
 
-Then run:
+Generate and score a simulated session:
 
 ```bash
-prepbuddy scenario-b --llm auto
+prepbuddy prep --document latest --sections 5,8 --questions-per-section 3 --answers-mode simulate --llm fake
 ```
+
+Launch the browser UI:
+
+```bash
+prepbuddy ui
+```
+
+On Windows and desktop Linux, Streamlit should open the browser automatically. In WSL, Docker, or another headless environment, the command still prints a local URL. You can also launch without trying to open a browser:
+
+```bash
+prepbuddy ui --no-open-browser
+```
+
+## Browser UI
+
+The UI opens on the **Start** view:
+
+1. Review the active document table.
+2. Select or upload a PDF.
+3. Inspect the section mapping.
+4. Choose sections.
+5. Set the number of questions per section.
+6. Generate a session.
+
+After generation, PrepBuddy switches to the **Session** view. The **Knowledge** view shows readable tables for recent sessions, missed questions, and weak topics.
+
+The sidebar contains:
+
+- PDF upload and document controls.
+- Session history for the selected document.
+- Provider settings.
+- Optional Gemini key entry.
+- Maintenance actions such as clearing sessions or resetting adaptive data.
 
 ## CLI Reference
 
 ```bash
 prepbuddy doctor
+prepbuddy doctor --paths
+
 prepbuddy ingest --pdf SLATEFALL_DOSSIER.pdf
 prepbuddy documents
-prepbuddy sections
+prepbuddy sections --document latest
 prepbuddy map-sections --document latest
 prepbuddy sessions --document latest
+
 prepbuddy prep --document latest --sections 3,7 --questions-per-section 5 --answers-mode interactive --llm auto
 prepbuddy scenario-a --document latest --sections 3,7 --out outputs/scenario_a
 prepbuddy scenario-b --document latest --out outputs
+
 prepbuddy kb-snapshot --document latest --limit 5
 prepbuddy export-kb --document latest --format json --limit 5 --out kb_snapshot.json
+
 prepbuddy delete-session <session_id> --yes
 prepbuddy delete-document <document_id> --yes --keep-file
 prepbuddy delete-all-documents --yes
 prepbuddy delete-all-sessions --yes
 prepbuddy clear-knowledge-base --yes
 prepbuddy clear-everything --yes
+
 prepbuddy config set-gemini-key --key ...
 prepbuddy api --host 127.0.0.1 --port 8000
 prepbuddy ui --open-browser
 ```
 
-`delete-document` archives the selected document and optionally removes its managed upload file. It does not delete sessions or learning history, so uploading the same PDF again reactivates the document with its previous history. `clear-everything` is the hard-delete operation.
-
-`prepbuddy ui` defaults to browser launch on Windows and WSL. If your environment cannot open a browser, run `prepbuddy ui --no-open-browser` and open the Local URL printed by Streamlit, usually `http://localhost:8501`.
-
-## Windows and WSL Paths
-
-The managed upload library lives under `data/uploads/`. Document records store project-local paths where possible and show both Windows-style and WSL-style display paths in the UI and `prepbuddy doctor --paths`. Commands work from either `F:\prepbuddy` in PowerShell with `venv` or `/mnt/f/prepbuddy` in WSL with `projectenv` as long as both environments use the same project directory and database path.
-
-Scenario B writes:
-
-```text
-outputs/scenario_b_iter1/questions_iter1.json
-outputs/scenario_b_iter1/kb_snapshot_iter1.json
-outputs/scenario_b_iter2/questions_iter2.json
-outputs/scenario_b_iter2/kb_snapshot_iter2.json
-outputs/scenario_b_iter3/questions_iter3.json
-outputs/scenario_b_iter3/kb_snapshot_iter3.json
-```
+`delete-document` archives a document by default. Its sessions and learning history remain available, and uploading the same PDF content reactivates the document. `clear-everything` is the full destructive reset.
 
 ## REST API
 
-Start the server:
+Start the API:
 
 ```bash
 prepbuddy api --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/docs`.
+Open the interactive OpenAPI docs at:
 
-Endpoints:
+```text
+http://127.0.0.1:8000/docs
+```
+
+Common endpoints:
 
 - `GET /health`
 - `GET /documents`
 - `POST /documents/ingest`
 - `POST /documents/upload`
-- `DELETE /documents`
 - `DELETE /documents/{document_id}`
-- `GET /sections`
-- `GET /sections/mapping`
 - `GET /documents/{document_id}/sections`
 - `GET /documents/{document_id}/mapping`
 - `GET /documents/{document_id}/sessions`
 - `POST /sessions`
 - `POST /sessions/{session_id}/answers`
 - `GET /sessions/{session_id}`
-- `DELETE /sessions`
 - `DELETE /sessions/{session_id}`
-- `GET /history?section_ids=5,8`
-- `GET /kb/snapshot?limit=5`
+- `GET /documents/{document_id}/kb/snapshot`
 - `DELETE /kb`
-- `GET /documents/{document_id}/kb/snapshot?limit=5`
 - `DELETE /maintenance/everything`
+
+More examples are in [docs/api.md](docs/api.md).
 
 ## Section Mapping
 
-Every document has its own mapping. Every section stores:
+Every document has its own section map. A section stores:
 
-- `canonical_id`: internal reviewer-facing ID assigned by document order.
-- `source_label`: exact visible label from the PDF.
-- `title`: extracted source heading title.
-- `aliases`: canonical ID, source label, title slug, and variants.
+- `canonical_id`: the stable ID used by CLI, API, and UI selectors.
+- `source_label`: the label detected in the PDF, such as `Section 5`, `Chapter 2`, or `Pages 28-54`.
+- `title`: the detected heading title.
+- `aliases`: unambiguous lookup names for section resolution.
 
-For the supplied dossier, ingestion maps:
+PrepBuddy tries explicit section headings first, then chapter-style headings, numeric and Roman numeral headings, and title-like headings. If a book or report has noisy repeated headings, it falls back to page-range sections so the PDF is still usable.
 
-| Canonical ID | Title |
-| ---: | --- |
-| 1 | Identity, Background, and Public Status |
-| 2 | Powers, Abilities, and Documented Limits |
-| 3 | Origin and Key Historical Events |
-| 4 | Equipment, Gear, and Specialized Technology |
-| 5 | Operational Tactics and Combat Doctrine |
-| 6 | Allies, Networks, and Known Affiliations |
-| 7 | Adversaries and Documented Threats |
-| 8 | Known Bases, Safehouses, and Operational Territory |
-| 9 | Case Files: Documented Engagements and Incidents |
-| 10 | Glossary, Codenames, and Reference Tables |
-
-If a future PDF uses different labels, create `config/section_mapping.json`:
+For custom mappings, add `config/section_mapping.json`:
 
 ```json
 {
@@ -249,22 +253,73 @@ If a future PDF uses different labels, create `config/section_mapping.json`:
 }
 ```
 
-Scenario commands apply this mapping before resolving sections. If multiple PDFs are ingested, use `--document <id>` or `--document latest` to select the right mapping.
-
-For textbooks, reports, and other PDFs where repeated bullets or references make headings unreliable, ingestion falls back to stable page-range sections such as `Pages 1-27`. This keeps arbitrary machine-readable PDFs usable while preserving direct section detection for dossier-style files and chapter detection for report-style files.
+Generated mapping files are written under `data/mappings/` and `docs/mappings/`.
 
 ## Knowledge Base
 
-SQLite tables:
+PrepBuddy stores local state in SQLite through SQLAlchemy. Main tables include:
 
 - `documents`, `sections`, `section_aliases`, `section_chunks`
 - `prep_sessions`, `session_sections`
 - `questions`, `answer_choices`, `answers`
 - `topic_stats`, `kb_snapshots`, `generation_events`, `app_state`
 
-The KB supports prior-session lookup by document and section IDs, question-level answer history, weak-topic aggregation, and recent session snapshots. Archived documents are hidden from the default document list but retain sections and sessions for reupload history. `clear-knowledge-base` records a reset marker so old sessions stay visible but no longer influence adaptation. CLI and UI snapshots render readable tables; JSON remains available for exports and APIs.
+The knowledge base is document-scoped. Adaptive generation uses only the selected document's completed sessions, weak topics, and recent question fingerprints.
 
-## Tests
+See [docs/schema.md](docs/schema.md) and [docs/adaptation.md](docs/adaptation.md) for more detail.
+
+## Docker
+
+Build and run the API:
+
+```bash
+docker compose up --build app
+```
+
+Open:
+
+```text
+http://localhost:8000/docs
+```
+
+Run the Streamlit UI:
+
+```bash
+docker compose --profile ui up --build ui
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+Use Ollama running on the host:
+
+```bash
+docker compose up --build app
+```
+
+Use the optional Ollama container:
+
+```bash
+PREPBUDDY_OLLAMA_BASE_URL=http://ollama:11434 docker compose --profile local-ollama up --build app ollama
+docker compose exec ollama ollama pull qwen3:4b-instruct
+```
+
+PowerShell:
+
+```powershell
+$env:PREPBUDDY_OLLAMA_BASE_URL = "http://ollama:11434"
+docker compose --profile local-ollama up --build app ollama
+docker compose exec ollama ollama pull qwen3:4b-instruct
+```
+
+The compose file mounts `data/`, `config/`, `outputs/`, and `docs/` so local state survives container rebuilds.
+
+## Testing
+
+WSL or Linux:
 
 ```bash
 source projectenv/bin/activate
@@ -280,61 +335,22 @@ pytest -q
 ruff check .
 ```
 
-The tests cover flexible section parsing, explicit mapping overrides, ambiguous alias handling, session scoring, Scenario B exports/adaptation, Docker config checks, and the API session flow.
+The test suite covers PDF parsing, mapping behavior, document history, provider validation and repair, adaptive generation, CLI flows, API flows, UI helpers, and Docker configuration.
 
-## Docker
+## Project Layout
 
-Docker requires Docker Desktop or another Docker engine on your PATH. In this environment Docker was not installed in Windows or WSL, so Docker build/runtime verification could not be executed here; the Docker files are covered by static tests.
-
-Compose reads `.env` automatically for variable substitution. For Gemini:
-
-```env
-GEMINI_API_KEY=...
-PREPBUDDY_LLM_PROVIDER=auto
+```text
+src/prepbuddy/        Application package
+tests/                Pytest suite
+docs/                 API notes, schema notes, adaptation notes, generated mappings
+config/               Optional section mapping overrides
+data/                 Local SQLite database, uploads, and generated mapping artifacts
+outputs/              Scenario exports and KB snapshots
 ```
 
-Build and run the API:
+## Limitations
 
-```bash
-docker compose up --build app
-```
-
-Open the API docs at `http://localhost:8000/docs`.
-
-Run the Streamlit UI in Docker:
-
-```bash
-docker compose --profile ui up --build ui
-```
-
-Docker containers cannot reliably open the host browser for you, so open `http://localhost:8501` manually.
-
-Use Ollama running on the host, including Windows or WSL Ollama, with the default compose setting:
-
-```bash
-docker compose up --build app
-```
-
-Use the containerized Ollama profile instead:
-
-```bash
-PREPBUDDY_OLLAMA_BASE_URL=http://ollama:11434 docker compose --profile local-ollama up --build app ollama
-docker compose exec ollama ollama pull qwen3:4b-instruct
-```
-
-PowerShell equivalent:
-
-```powershell
-$env:PREPBUDDY_OLLAMA_BASE_URL = "http://ollama:11434"
-docker compose --profile local-ollama up --build app ollama
-docker compose exec ollama ollama pull qwen3:4b-instruct
-```
-
-The compose file mounts `data/`, `config/`, `outputs/`, `docs/`, and the provided PDFs into the app/UI containers. `.dockerignore` excludes local virtual environments, uploaded runtime PDFs, SQLite files, logs, and outputs from the image build context.
-
-## Known Limitations
-
-- The PDF must contain machine-readable text. Scanned-image OCR is out of scope for this assessment build.
-- Local Ollama quality and speed depend on hardware.
-- Gemini structured output is the preferred fast path, but the local fallback keeps the project runnable without paid services.
-- Section fallback detection is conservative; heavily stylized PDFs may need `config/section_mapping.json`.
+- Scanned PDFs need OCR before ingestion.
+- Local generation speed depends on hardware and model size.
+- Very noisy PDF layouts may map to page ranges instead of semantic sections.
+- The app is local-first and does not include multi-user authentication.

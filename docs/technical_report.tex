@@ -1,0 +1,395 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\setlist[itemize]{leftmargin=1.4em}
+\setlist[enumerate]{leftmargin=1.6em}
+\renewcommand{\arraystretch}{1.2}
+\emergencystretch=3em
+
+\title{\textbf{PrepBuddy Adaptive PDF Preparation System}\\Technical Report}
+\author{PrepBuddy Project}
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+PrepBuddy is a local-first system for turning PDF documents into adaptive preparation sessions. It ingests PDFs, resolves document sections, stores a document-scoped knowledge base, generates grounded multiple-choice questions through hosted or local language models, scores answers, and adapts future sessions toward weak topics. The system exposes the same core workflow through a command-line interface, a FastAPI service, and a Streamlit user interface. This report describes the architecture, data model, PDF ingestion strategy, section mapping behavior, LLM provider design, adaptive session workflow, deployment modes, testing approach, and operational considerations.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+Many study workflows start from long PDFs: reports, dossiers, textbooks, policy documents, lecture notes, or manuals. Turning those documents into useful practice material is usually repetitive. A user must identify the relevant sections, write questions, track performance, and decide what to revisit. PrepBuddy automates that workflow while keeping the document, history, and generated artifacts local by default.
+
+The application is built around a simple idea: every generated question should be grounded in a selected part of a known document, and every future session should use the learner's previous answers to spend more time on weaker areas. The result is not a generic quiz generator. It is a document-specific preparation system with persistent section mappings, session history, and adaptive feedback.
+
+\section{Goals and Requirements}
+
+\subsection{Functional Goals}
+
+The system supports the following functional goals:
+
+\begin{itemize}
+  \item Ingest a broad range of PDFs, including dossier-style documents, technical reports, and textbook-like files.
+  \item Build a section map for each document and expose that mapping to the UI, CLI, and API.
+  \item Generate multiple-choice questions from user-selected sections.
+  \item Support a hosted LLM path through Gemini and a local LLM path through Ollama.
+  \item Persist sessions, questions, answer choices, submitted answers, scoring results, and weak-topic statistics.
+  \item Use prior attempts to adapt future prompts toward weak topics and away from repeated mastered questions.
+  \item Provide a browser UI, terminal commands, and REST API endpoints over the same service layer.
+  \item Preserve document history when a document is archived and reuse that history when the same PDF is uploaded again.
+\end{itemize}
+
+\subsection{Nonfunctional Goals}
+
+The nonfunctional goals are:
+
+\begin{itemize}
+  \item Local-first operation with SQLite as the default database.
+  \item Predictable setup on Windows, WSL/Linux, and Docker.
+  \item Clear failure modes for missing models, malformed model output, ambiguous section references, and missing document mappings.
+  \item Deterministic testing through a fake LLM provider.
+  \item Public, maintainable project structure using Python packaging conventions.
+\end{itemize}
+
+\section{System Overview}
+
+PrepBuddy uses a backend-first architecture. The CLI, REST API, and Streamlit UI all call the same service layer. This keeps document ingestion, section mapping, generation, scoring, and persistence consistent regardless of entry point.
+
+\begin{verbatim}
+Streamlit UI ----\
+prepbuddy CLI ----> PrepService ---> Repository ---> SQLite
+FastAPI REST ----/       |
+                         +--> PDF Ingestion + Section Mapping
+                         |
+                         +--> Adaptive Prompt Builder
+                                  |
+                                  +--> Gemini Provider
+                                  +--> Ollama Provider
+                                  +--> Fake Provider
+\end{verbatim}
+
+\subsection{Major Components}
+
+\begin{longtable}{p{0.25\textwidth}p{0.65\textwidth}}
+\toprule
+\textbf{Component} & \textbf{Responsibility} \\
+\midrule
+CLI & Provides the \texttt{prepbuddy} terminal command for ingestion, sessions, exports, API launch, UI launch, and maintenance operations. \\
+FastAPI service & Exposes document, section, session, answer submission, history, and maintenance endpoints. \\
+Streamlit UI & Provides document upload, section selection, session generation, answer submission, history review, provider configuration, and maintenance actions. \\
+PrepService & Coordinates ingestion, generation, scoring, adaptation, repository calls, and provider selection. \\
+Repository & Encapsulates SQLAlchemy queries and persistence behavior. \\
+PDF ingestion & Extracts text with PyMuPDF and builds top-level sections or page-range sections when headings are unreliable. \\
+Mapping resolver & Assigns canonical IDs, source labels, titles, and unambiguous aliases for lookup. \\
+Provider router & Selects Gemini, Ollama, or Fake generation based on configuration and availability. \\
+SQLite database & Stores documents, sections, chunks, sessions, questions, answers, topic statistics, generation events, and snapshots. \\
+\bottomrule
+\end{longtable}
+
+\section{Project Structure}
+
+The package uses a Python \texttt{src/} layout. The main package lives under \texttt{src/prepbuddy/}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.32\textwidth}p{0.58\textwidth}}
+\toprule
+\textbf{Path} & \textbf{Purpose} \\
+\midrule
+\path{src/prepbuddy/cli.py} & Typer command definitions and terminal workflows. \\
+\path{src/prepbuddy/api.py} & FastAPI application and REST endpoints. \\
+\path{src/prepbuddy/ui.py} & Streamlit application. \\
+\path{src/prepbuddy/service.py} & Application orchestration and adaptive workflow. \\
+\path{src/prepbuddy/repository.py} & Database operations and query behavior. \\
+\path{src/prepbuddy/db.py} & SQLAlchemy models, engine setup, migrations, and SQLite pragmas. \\
+\path{src/prepbuddy/ingestion.py} & PDF parsing and section extraction. \\
+\path{src/prepbuddy/mapping.py} & Section mapping and alias normalization. \\
+\path{src/prepbuddy/providers.py} & Gemini, Ollama, and fake provider implementations. \\
+\path{src/prepbuddy/schemas.py} & Pydantic schemas and public data contracts. \\
+\path{tests/} & Unit, integration, CLI, API, provider, UI helper, and Docker configuration tests. \\
+\bottomrule
+\end{longtable}
+
+\section{PDF Ingestion and Section Mapping}
+
+\subsection{Problem}
+
+PDFs are not structurally consistent. A clean dossier may contain explicit headings such as \texttt{Section 5. Tactics}. A technical report may use numbered headings such as \texttt{3.2 Methodology}. A textbook may repeat chapter titles in headers, list many numbered exercises, and contain references that look like headings. A robust preparation system cannot assume that every PDF uses sections 1 through 10.
+
+\subsection{Extraction Pipeline}
+
+PrepBuddy uses PyMuPDF to extract text page by page. The ingestion layer then attempts progressively broader detection strategies:
+
+\begin{enumerate}
+  \item Explicit \texttt{Section N} headings.
+  \item Chapter-style headings.
+  \item Numeric headings.
+  \item Roman numeral headings.
+  \item Title-like top-level headings.
+  \item Stable page-range sections when heading detection is too noisy or ambiguous.
+\end{enumerate}
+
+The fallback is important. It lets users prepare from ordinary books and reports instead of failing ingestion because a document has repeated labels or nonstandard headings.
+
+\subsection{Canonical IDs, Source Labels, and Aliases}
+
+Each stored section has:
+
+\begin{itemize}
+  \item \textbf{Canonical ID}: the internal stable integer for selection and scenario commands.
+  \item \textbf{Source label}: the label detected from the PDF, such as \texttt{Section 5}, \texttt{Chapter 2}, or \texttt{Pages 31-55}.
+  \item \textbf{Title}: the detected or generated title.
+  \item \textbf{Aliases}: normalized lookup names for safe resolution.
+\end{itemize}
+
+Aliases are useful, but only if they are unambiguous. The mapper therefore avoids accepting duplicate aliases that could resolve to multiple sections. When a repeated label appears in a report or textbook, the ingestion process should skip or qualify the ambiguous alias rather than reject the whole PDF.
+
+\subsection{Document-Scoped Mapping}
+
+Mappings are document-scoped. Section \texttt{5} in one PDF and section \texttt{5} in another PDF are separate entities. This prevents adaptive history from mixing unrelated documents that happen to use the same visible numbering.
+
+\section{Knowledge Base and Data Model}
+
+PrepBuddy stores local state in SQLite through SQLAlchemy. SQLite is a good fit because the application is single-user and local-first, while still providing transactions, indexes, foreign keys, and simple portability.
+
+\subsection{Core Tables}
+
+\begin{longtable}{p{0.25\textwidth}p{0.65\textwidth}}
+\toprule
+\textbf{Table} & \textbf{Purpose} \\
+\midrule
+\texttt{documents} & One row per ingested PDF, including metadata, content hash, stored path, active/archive state, and upload information. \\
+\texttt{sections} & Top-level document sections with canonical ID, label, title, page range, and extracted text. \\
+\texttt{section\_aliases} & Lookup aliases for section resolution. \\
+\texttt{section\_chunks} & Chunked section text used as LLM context. \\
+\texttt{prep\_sessions} & Generated or completed session metadata, provider information, score, and adaptation context. \\
+\texttt{session\_sections} & Join table linking sessions to selected sections. \\
+\texttt{questions} & Generated MCQs, including topic, fingerprint, correct answer, and explanation. \\
+\texttt{answer\_choices} & Choice labels and text for each MCQ. \\
+\texttt{answers} & Submitted answers and correctness results. \\
+\texttt{topic\_stats} & Aggregated attempts, correct counts, and wrong counts by document, section, and topic. \\
+\texttt{generation\_events} & Provider, model, latency, token usage, and warning metadata. \\
+\texttt{kb\_snapshots} & Persisted readable snapshots of recent knowledge-base state. \\
+\texttt{app\_state} & Application-level maintenance markers such as knowledge-base reset time. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Archive Semantics}
+
+Deleting a document from normal UI and CLI workflows archives it instead of hard-deleting its history. The document disappears from the active document list, but sessions, answers, topic statistics, and mappings remain available for restoration. When the same PDF content is uploaded again, PrepBuddy uses the content hash to reactivate the existing document and reuse its history.
+
+Hard deletion is reserved for explicit maintenance actions such as \texttt{clear-everything}.
+
+\section{LLM Provider Layer}
+
+\subsection{Provider Abstraction}
+
+The provider layer defines a common interface for MCQ generation. This allows the service layer to validate and persist generated questions without caring whether they came from Gemini, Ollama, or a fake deterministic generator.
+
+\subsection{Gemini Provider}
+
+Gemini is the hosted fast path. It is selected automatically when a Gemini API key is present and provider mode is set to \texttt{auto}. The provider requests structured JSON and returns parsed MCQ data to the service layer.
+
+\subsection{Ollama Provider}
+
+Ollama is the local path. It lets the application run without a paid hosted API. The default local model is \texttt{qwen3:4b-instruct}. Output budgets are sized according to the requested question count so larger sessions are less likely to be truncated.
+
+\subsection{Fake Provider}
+
+The fake provider is deterministic. It exists for tests, demonstrations, and smoke runs where repeatability matters more than natural language quality.
+
+\subsection{Validation and Repair}
+
+LLM output is never accepted blindly. The service validates:
+
+\begin{itemize}
+  \item exact total question count;
+  \item exact per-section distribution;
+  \item four choices per question;
+  \item one valid correct answer;
+  \item explanation presence;
+  \item topic tag presence;
+  \item valid section references;
+  \item duplicate question fingerprints.
+\end{itemize}
+
+If a provider returns too few questions, the service performs bounded repair attempts for the missing sections. If the provider still cannot meet the request, the session fails clearly instead of silently showing fewer questions.
+
+\section{Adaptive Session Workflow}
+
+\subsection{Session Generation}
+
+A session starts with a selected document, selected sections, provider mode, and question count per section. The service resolves each section against the selected document, fetches relevant chunks, looks up prior performance, and constructs a compact prompt.
+
+\subsection{Cold Start}
+
+When there is no useful history for the selected sections, PrepBuddy asks for balanced coverage across the selected material. The prompt emphasizes exact counts and grounded questions.
+
+\subsection{Returning Sessions}
+
+When history exists, the prompt includes:
+
+\begin{itemize}
+  \item weak topics sorted by wrong answers and attempts;
+  \item a short prior-session summary;
+  \item recent question fingerprints to avoid repetition;
+  \item selected section excerpts.
+\end{itemize}
+
+The goal is to spend more time on weak topics while still generating questions from the chosen document sections.
+
+\subsection{Scoring and Feedback}
+
+Submitted answers are scored against the persisted correct answer labels. Correct feedback is labeled as a correct answer. Wrong feedback is labeled as a wrong answer and includes the correct choice and a clarification based on the stored MCQ explanation.
+
+\subsection{Knowledge Reset}
+
+Clearing the knowledge base removes adaptive aggregates and records a reset marker. Existing sessions remain visible for review, but future adaptation ignores history before the reset timestamp.
+
+\section{User Interfaces}
+
+\subsection{Streamlit UI}
+
+The UI is organized around three primary views:
+
+\begin{itemize}
+  \item \textbf{Start}: document table, document selection, section map, section selector, question count, and session generation.
+  \item \textbf{Session}: numbered MCQs, answer submission, score, and feedback.
+  \item \textbf{Knowledge}: readable tables for sessions, missed questions, and weak topics.
+\end{itemize}
+
+The sidebar contains upload controls, document rows with delete actions, document-scoped session history, provider settings, optional Gemini key entry, and maintenance actions.
+
+\subsection{Command-Line Interface}
+
+The CLI is implemented with Typer and Rich. It supports:
+
+\begin{itemize}
+  \item environment and path checks through \texttt{prepbuddy doctor};
+  \item document ingestion and listing;
+  \item section and mapping inspection;
+  \item session generation and simulated or interactive answers;
+  \item scenario exports;
+  \item knowledge-base snapshots;
+  \item maintenance commands for sessions, documents, and adaptive data;
+  \item launching the API and UI.
+\end{itemize}
+
+\subsection{REST API}
+
+The FastAPI app exposes document, section, session, answer submission, knowledge snapshot, and maintenance endpoints. It uses the same service layer as the CLI and UI, so behavior is consistent across interfaces.
+
+\section{Deployment}
+
+\subsection{Windows}
+
+The Windows path uses a virtual environment named \texttt{venv}. The installed console script is available as \texttt{prepbuddy} inside the activated environment. Streamlit can open the browser automatically on normal desktop Windows installations.
+
+\subsection{WSL and Linux}
+
+The WSL/Linux path uses a virtual environment named \texttt{projectenv}. Browser launching may depend on WSL desktop integration. If automatic launch is unavailable, the UI command prints a local URL that can be opened manually.
+
+\subsection{Docker}
+
+The Docker setup provides:
+
+\begin{itemize}
+  \item an API service on port 8000;
+  \item an optional UI service on port 8501;
+  \item mounted local directories for \texttt{data/}, \texttt{config/}, \texttt{outputs/}, and \texttt{docs/};
+  \item optional containerized Ollama through a compose profile.
+\end{itemize}
+
+Containers do not attempt to open the host browser. Users open the printed host URL directly.
+
+\section{Testing and Quality Assurance}
+
+The project uses pytest and Ruff. The test suite covers:
+
+\begin{itemize}
+  \item direct section numbering, report-like headings, textbook-like fallbacks, and ambiguous aliases;
+  \item repository behavior for multiple documents, archives, reactivation, sessions, and snapshots;
+  \item provider validation, exact-count repair, and Ollama error handling;
+  \item CLI document/session maintenance;
+  \item API document upload, mapping, session creation, answer submission, and deletion flows;
+  \item UI helper formatting for question numbering, score display, key masking, and readable snapshots;
+  \item Dockerfile and compose configuration.
+\end{itemize}
+
+The fake provider enables deterministic tests without requiring external network calls or local model availability.
+
+\section{Security and Privacy Considerations}
+
+PrepBuddy is local-first, but users can choose hosted inference. The privacy model depends on provider selection:
+
+\begin{itemize}
+  \item With Ollama or the fake provider, generation stays local.
+  \item With Gemini, selected document excerpts are sent to the hosted API.
+  \item Gemini keys are never printed in full and can be kept session-only in the UI.
+  \item Uploaded PDFs are stored under the local data directory when managed by the app.
+  \item The app does not implement multi-user authentication and should not be exposed directly to untrusted networks.
+\end{itemize}
+
+\section{Operational Considerations}
+
+\subsection{SQLite}
+
+SQLite keeps setup simple. It is suitable for local single-user workflows and tests. If PrepBuddy were extended into a multi-user hosted service, the repository layer would be the natural boundary for moving to PostgreSQL or another server database.
+
+\subsection{Model Output Variability}
+
+Structured output reduces parsing failures, but language models can still under-generate, repeat questions, or ignore requested distribution. PrepBuddy handles this through validation, bounded repair, and clear provider errors.
+
+\subsection{PDF Quality}
+
+PDF extraction quality depends on the source file. Native text PDFs work best. Scanned documents require OCR before ingestion. Highly decorative layouts may produce page-range sections rather than semantic chapter sections.
+
+\section{Limitations}
+
+\begin{itemize}
+  \item PrepBuddy does not perform OCR.
+  \item It does not include authentication or multi-user permissions.
+  \item Question quality depends on extracted text quality and model behavior.
+  \item Page-range fallback is intentionally conservative and may be less semantically precise than manual section mapping.
+  \item Hosted inference may send selected excerpts to the configured provider.
+\end{itemize}
+
+\section{Future Work}
+
+Useful future improvements include:
+
+\begin{itemize}
+  \item optional OCR for scanned PDFs;
+  \item richer manual section editing in the UI;
+  \item semantic search over large document libraries;
+  \item additional question types beyond MCQs;
+  \item export formats for Anki, CSV, and learning management systems;
+  \item a multi-user deployment mode with authentication and authorization.
+\end{itemize}
+
+\section{Conclusion}
+
+PrepBuddy provides a practical local system for document-grounded study. Its main design choices are conservative: a shared service layer, document-scoped history, robust section mapping, provider-independent validation, SQLite persistence, and deterministic tests. These choices make the app easy to run on a laptop while leaving clear extension points for larger deployments.
+
+\end{document}
