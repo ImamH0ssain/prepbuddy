@@ -18,3 +18,4 @@ data/*.sqlite-*
 data/uploads/
 data/mappings/
 logs/
+assessment_brief.pdf
