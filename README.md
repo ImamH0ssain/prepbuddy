@@ -39,7 +39,7 @@ flowchart TD
     Service --> Exports[JSON and KB Exports]
 ```
 
-## Requirements
+## Prerequisites
 
 - Python 3.12 or newer.
 - PDFs with extractable text. Scanned PDFs should be OCR'd first.
@@ -47,12 +47,29 @@ flowchart TD
 - Optional: Ollama with `qwen3:4b-instruct` for local inference.
 - Optional: Docker Desktop or another Docker engine.
 
+## Stack Choices
+
+PrepBuddy keeps the stack small so the full project can run locally without managed infrastructure.
+
+| Area | Choice | Reasoning |
+| --- | --- | --- |
+| Runtime and packaging | Python 3.12 with a `src/` package layout | Python has mature PDF, API, CLI, and LLM client libraries, and the `src/` layout keeps imports and tests predictable. |
+| CLI | Typer and Rich | Typer makes the `prepbuddy` command easy to maintain, while Rich gives readable tables and status output for reviewers and users. |
+| API | FastAPI | FastAPI provides typed request/response models, automatic OpenAPI docs, and a straightforward path from local CLI workflows to REST integration. |
+| UI | Streamlit | Streamlit is enough for a practical document-prep dashboard without adding a separate frontend build system. |
+| Storage | SQLite with SQLAlchemy 2.x | SQLite is simple to run locally, queryable, and durable enough for a single-user knowledge base. SQLAlchemy keeps the repository layer portable. |
+| PDF parsing | PyMuPDF | PyMuPDF is fast, works well for text extraction, and exposes page-level text needed for section and page-range mapping. |
+| LLMs | Gemini, Ollama, and a fake provider | Gemini is the fast hosted path, Ollama keeps the app usable offline, and the fake provider makes tests and demo runs deterministic. |
+| Orchestration | Internal service/provider abstractions | The workflow is specific enough that small local abstractions are clearer than pulling in a larger orchestration framework. |
+| Containers | Docker Compose | Compose provides repeatable API/UI runs and an optional local Ollama service while preserving local state through mounted volumes. |
+
 ## Install on Windows
 
 Open PowerShell:
 
 ```powershell
-cd ~\prepbuddy
+git clone https://github.com/ImamH0ssain/prepbuddy.git prepbuddy
+cd prepbuddy
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -72,7 +89,8 @@ After installation, run commands as `prepbuddy ...`. You do not need to use `pyt
 ## Install on WSL or Linux
 
 ```bash
-cd /mnt/~/prepbuddy
+git clone https://github.com/ImamH0ssain/prepbuddy.git prepbuddy
+cd prepbuddy
 python3 -m venv projectenv
 source projectenv/bin/activate
 python -m pip install --upgrade pip
@@ -142,6 +160,55 @@ On Windows and desktop Linux, Streamlit should open the browser automatically. I
 
 ```bash
 prepbuddy ui --no-open-browser
+```
+
+## Evaluation Scenarios
+
+The assessment scenarios can be run entirely from the CLI. Ingest the PDF first:
+
+```bash
+prepbuddy ingest --pdf SLATEFALL_DOSSIER.pdf
+```
+
+Scenario A runs a cold-start prep session over any two sections. This example uses sections 3 and 7:
+
+```bash
+prepbuddy scenario-a --document latest --sections 3,7 --questions-per-section 5 --llm auto --out outputs/scenario_a
+```
+
+For a deterministic local smoke run without an LLM service:
+
+```bash
+prepbuddy scenario-a --document latest --sections 3,7 --questions-per-section 5 --llm fake --out outputs/scenario_a
+```
+
+Scenario B runs the required three consecutive iterations:
+
+- Iteration 1: sections 5 and 8.
+- Iteration 2: sections 6, 8, and 9.
+- Iteration 3: section 8.
+
+Run it with the configured LLM provider:
+
+```bash
+prepbuddy scenario-b --document latest --questions-per-section 5 --llm auto --out outputs
+```
+
+Run it deterministically with the fake provider:
+
+```bash
+prepbuddy scenario-b --document latest --questions-per-section 5 --llm fake --out outputs
+```
+
+Scenario B writes:
+
+```text
+outputs/scenario_b_iter1/questions_iter1.json
+outputs/scenario_b_iter1/kb_snapshot_iter1.json
+outputs/scenario_b_iter2/questions_iter2.json
+outputs/scenario_b_iter2/kb_snapshot_iter2.json
+outputs/scenario_b_iter3/questions_iter3.json
+outputs/scenario_b_iter3/kb_snapshot_iter3.json
 ```
 
 ## Browser UI
@@ -348,9 +415,13 @@ data/                 Local SQLite database, uploads, and generated mapping arti
 outputs/              Scenario exports and KB snapshots
 ```
 
-## Limitations
+## Known Limitations and Assumptions
 
 - Scanned PDFs need OCR before ingestion.
 - Local generation speed depends on hardware and model size.
 - Very noisy PDF layouts may map to page ranges instead of semantic sections.
 - The app is local-first and does not include multi-user authentication.
+- MCQ wording can vary between LLM runs. PrepBuddy validates structure and exact requested counts, but it does not require identical text across runs.
+- Hosted LLM providers receive the selected PDF excerpts needed for generation. Use Ollama or the fake provider when local-only execution is required.
+- If a PDF does not use sections 1-10, PrepBuddy assigns canonical IDs by detected section order or page-range order. Custom mappings can be supplied with `config/section_mapping.json`.
+- No vector store is included because the current workflow retrieves known document sections rather than searching an open-ended corpus.
